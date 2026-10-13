@@ -1,0 +1,59 @@
+# Helm — home-server dashboard
+#
+# This file is the generic base. Put YOUR machine's paths in a
+# docker-compose.override.yml next to it (Compose merges it automatically and
+# it's git-ignored) and your secrets in .env. See docker-compose.override.example.yml.
+#
+#   cp .env.example .env                                         # set a password etc.
+#   cp docker-compose.override.example.yml docker-compose.override.yml   # your drives/folders
+#   docker compose up -d --build
+#   open http://<server-ip>:8787
+
+name: helm
+
+services:
+  helm:
+    build: .
+    container_name: helm
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      JARVIS_DATA: /data
+      HOST_ROOT: /host/root               # host / is mounted read-only below
+      DRIVES: "System:/host/root"         # Name:/host/root/<mount>, comma-separated
+      JARVIS_COOKIE_SECURE: "0"           # set to 1 once you serve Helm over HTTPS
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - helm-data:/data
+      # Read-only view of the host: drive usage, host network counters, hostname,
+      # backup status file. Nothing here is writable.
+      - /:/host/root:ro
+    ports:
+      - "8787:8000"                       # tip: bind to your Tailscale IP, e.g. "100.x.y.z:8787:8000"
+    depends_on: [socket-proxy]
+    networks: [internal]
+
+  # Helm never touches the Docker socket directly — only this proxy does, with a
+  # minimal allow-list (list/inspect/stats/logs + start/stop/restart/pause).
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: helm-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      INFO: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [internal]
+
+volumes:
+  helm-data: {}
+
+networks:
+  internal:
+    driver: bridge

@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Helm</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231b1b19' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='7'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#F5F5F2;--card:#FFFFFF;--line:#E4E3DE;--ink:#1B1B19;--muted:#615F59;--soft:#F0EFEA;--bar:#1B1B19;--track:#ECEBE6;
+  --ok:#2B7548;--warn:#94570A;--bad:#B3261E;--okbg:#E6F1E9;--warnbg:#FAEFDA;--badbg:#FBE6E3;--accent:#2F55C4;--accentbg:#EAEFFC;
+  --scrim:rgba(20,20,18,.32);--shadow:0 14px 40px rgba(0,0,0,.10)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121211;--card:#1A1A19;--line:#2C2B29;--ink:#EDEDE8;--muted:#A3A29B;--soft:#222220;--bar:#E6E6E0;--track:#2B2A27;
+  --ok:#74C493;--warn:#E3A84E;--bad:#F2908A;--okbg:#1B2A20;--warnbg:#2D2416;--badbg:#341D1B;--accent:#93A9FF;--accentbg:#1E2440;--scrim:rgba(0,0,0,.55);--shadow:0 14px 40px rgba(0,0,0,.4)}}
+:root[data-theme="dark"]{--bg:#121211;--card:#1A1A19;--line:#2C2B29;--ink:#EDEDE8;--muted:#A3A29B;--soft:#222220;--bar:#E6E6E0;--track:#2B2A27;
+  --ok:#74C493;--warn:#E3A84E;--bad:#F2908A;--okbg:#1B2A20;--warnbg:#2D2416;--badbg:#341D1B;--accent:#93A9FF;--accentbg:#1E2440;--scrim:rgba(0,0,0,.55);--shadow:0 14px 40px rgba(0,0,0,.4)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:"Geist",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;padding:28px 24px 64px;font-size:14px}
+.num{font-family:"Geist Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.wrap{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.btn{font:inherit;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:0 12px;min-height:34px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--soft);color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--soft)}
+.btn.sm{min-height:30px;font-size:12px;padding:0 9px}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{opacity:.88;background:var(--ink);color:var(--bg)}
+.btn.accent{color:var(--accent);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn svg{flex:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent)}a:hover{color:var(--ink)}
+h1,h2{margin:0}
+h2{font-size:14px;font-weight:600}
+.row{display:flex;align-items:center;gap:10px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);padding:0 12px;min-height:34px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ok)}
+.badge{font-size:11.5px;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.b-running{color:var(--ok);background:var(--okbg)}.b-paused{color:var(--warn);background:var(--warnbg)}
+.b-stopped,.b-restarting{color:var(--bad);background:var(--badbg)}
+.track{height:6px;border-radius:4px;background:var(--track);overflow:hidden}
+.track>i{display:block;height:100%;border-radius:4px;background:var(--bar)}
+.track.thin{height:4px}.track>i.warn{background:var(--warn)}.track>i.crit{background:var(--bad)}
+.label{font-size:11.5px;color:var(--muted)}
+.cap{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.mono-tile{width:34px;height:34px;flex:none;border-radius:9px;background:var(--soft);display:grid;place-items:center;font-size:12.5px;font-weight:600}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* header */
+header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--ink);display:grid;place-items:center;flex:none}
+.switch{width:26px;height:15px;border-radius:999px;background:var(--line);position:relative;display:inline-block;transition:background .2s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:var(--card);transition:left .2s}
+[aria-pressed="true"] .switch{background:var(--ink)}[aria-pressed="true"] .switch::after{left:13px}
+
+/* alerts */
+.alerts{padding:12px 12px 12px 20px;display:flex;flex-direction:column;gap:10px}
+.agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:6px}
+.alert{display:flex;flex-direction:column;gap:8px;padding:10px 8px 10px 12px;border-radius:10px}
+.a-crit{background:var(--badbg)}.a-warn{background:var(--warnbg)}.a-info{background:var(--accentbg)}.a-muted{background:var(--soft)}
+.a-crit .dot{background:var(--bad)}.a-warn .dot{background:var(--warn)}.a-info .dot{background:var(--accent)}.a-muted .dot{background:var(--muted)}
+.note{font-size:12.5px;color:var(--muted);background:var(--soft);border-radius:8px;padding:8px 12px}
+
+/* ask bar + composer */
+.askbar{padding:8px 8px 8px 16px;display:flex;align-items:center;gap:12px}
+.askbar:focus-within{border-color:var(--muted)}
+.askin{flex:1;min-width:0;border:0;outline:none;background:transparent;font:inherit;font-size:15px;color:var(--ink);min-height:40px}
+.askin::placeholder{color:var(--muted)}
+.composer{position:fixed;z-index:40;box-shadow:var(--shadow)}
+.composer.settled{bottom:24px;left:50%;transform:translateX(-50%);width:min(760px,calc(100% - 32px))}
+
+/* panels */
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.panel{padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel .grip{cursor:grab;color:var(--muted);opacity:0;transition:opacity .15s;user-select:none;padding:0 4px}
+.panel:hover .grip{opacity:1}
+.panel.dragover{border-color:var(--muted)}.panel.dragging{opacity:.45}
+.big{font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1}
+.threads{display:flex;gap:5px;align-items:flex-end;height:64px}
+.thread{display:flex;flex-direction:column;align-items:center;gap:4px}
+.thread .col{width:12px;height:52px;border-radius:4px;background:var(--track);display:flex;align-items:flex-end;overflow:hidden}
+.thread .col i{width:100%;border-radius:4px;background:var(--bar)}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:7px 0;border-top:1px solid var(--line)}
+.stat2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat2>div{background:var(--soft);border-radius:10px;padding:12px}
+
+/* services */
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.ucard{padding:14px;display:flex;flex-direction:column;gap:12px;min-height:160px;position:relative}
+.ucard:hover{border-color:var(--muted)}
+.ucard.dragging{opacity:.4}
+.ucard.cue-group{box-shadow:0 0 0 2px var(--accent)}.ucard.cue-before{box-shadow:-3px 0 0 var(--accent)}.ucard.cue-after{box-shadow:3px 0 0 var(--accent)}
+.unit{font:inherit;text-align:left;color:var(--ink);cursor:pointer;background:transparent;border:0;padding:0;width:100%;display:flex;flex-direction:column;gap:12px;flex:1}
+.ufoot{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:10px;min-height:30px}
+.ugrip{position:absolute;top:8px;right:8px;cursor:grab;color:var(--muted);opacity:0;font-size:14px;user-select:none;padding:2px 4px;border-radius:6px}
+.ucard:hover .ugrip{opacity:1}
+.band{grid-column:1/-1;padding:16px;display:flex;flex-direction:column;gap:12px;border-color:var(--muted)}
+.table{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.trow{display:grid;gap:12px;padding:10px 14px;align-items:center;border-top:1px solid var(--line);font-size:13px}
+.trow.head{border-top:0;background:var(--soft);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:9px 14px}
+.mrow{grid-template-columns:minmax(0,2.2fr) 110px minmax(0,1.4fr) minmax(0,1.1fr) minmax(0,1fr) 160px;min-width:760px}
+.frow{grid-template-columns:minmax(0,1fr) 110px 130px 170px;min-width:620px;padding:8px 14px}
+.linkbtn{font:inherit;color:var(--ink);background:transparent;border:0;padding:0;cursor:pointer;text-align:left;font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.linkbtn:hover{text-decoration:underline}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* modal */
+.overlay{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.overlay .scrim{position:absolute;inset:0;background:var(--scrim);border:0}
+.dialog{position:relative;width:560px;max-width:100%;max-height:90vh;overflow:auto;box-shadow:var(--shadow);display:flex;flex-direction:column;animation:pop .22s cubic-bezier(.2,.8,.2,1)}
+.dialog.wide{width:720px}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+.dhead{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 14px 20px;border-bottom:1px solid var(--line)}
+.dbody{padding:16px 20px}
+.dfoot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px}
+.chip{font-size:12px;background:var(--soft);border-radius:7px;padding:6px 10px;overflow-x:auto;white-space:nowrap}
+pre.code{background:var(--soft);border-radius:8px;padding:11px 12px;margin:0;font-size:12px;white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.cmd{position:relative;margin:4px 0}.cmd .btn{position:absolute;top:6px;right:6px}
+pre.logs{max-height:60vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:11.5px}
+
+/* chat */
+.chat{max-width:760px;margin:0 auto;min-height:calc(100vh - 92px);display:flex;flex-direction:column;gap:22px;padding:56px 0 140px}
+.msg-user{align-self:flex-end;max-width:80%;background:var(--soft);border-radius:16px 16px 4px 16px;padding:10px 14px;font-size:15px;line-height:1.5;white-space:pre-wrap}
+.msg-ai{display:flex;gap:12px;align-items:flex-start}
+.msg-ai .body{flex:1;min-width:0;padding-top:4px;font-size:15px;line-height:1.6;white-space:pre-wrap}
+.ai-av{width:30px;height:30px;flex:none;border-radius:9px;background:var(--ink);display:grid;place-items:center}
+.viewpill{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:45;display:flex;gap:2px;padding:4px;border-radius:999px;background:var(--card);border:1px solid var(--line);box-shadow:0 6px 20px rgba(0,0,0,.08)}
+.viewpill button{font:inherit;font-size:13px;font-weight:500;border:0;border-radius:999px;padding:0 18px;min-height:34px;cursor:pointer;background:transparent;color:var(--muted);transition:background .2s,color .2s}
+.viewpill button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+/* motion */
+.stage{transition:opacity .38s ease,transform .5s cubic-bezier(.2,.8,.2,1),filter .38s ease}
+.stage.out{opacity:0;transform:translateY(-18px) scale(.985);filter:blur(6px);pointer-events:none}
+.stage.in{animation:stageIn .5s cubic-bezier(.2,.8,.2,1)}
+@keyframes stageIn{from{opacity:0;transform:translateY(12px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+.rise{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.fadein{animation:fadein .4s ease both}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.pillin{animation:pillin .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes pillin{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translate(-50%,0)}}
+.dot3 span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin-right:4px;animation:blink 1.1s infinite ease-in-out}
+.dot3 span:nth-child(2){animation-delay:.15s}.dot3 span:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:80;max-width:86vw}
+.toast.show{opacity:1;transform:translateX(-50%)}
+body.chatting .toast{bottom:96px}
+@media (prefers-reduced-motion:reduce){.stage,.stage.in,.rise,.pillin,.fadein,.dialog{animation:none!important;transition:none!important}}
+@media (max-width:640px){body{padding:20px 16px 56px}.facts{grid-template-columns:1fr}.askbar .hint{display:none}}
+
+/* login */
+#login .dialog{width:340px;text-align:center;padding:28px 24px;gap:10px;align-items:stretch}
+#login input{font:inherit;font-size:14px;width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+body.locked #app{filter:blur(6px);pointer-events:none}
+</style>
+</head>
+<body class="locked">
+<div id="app">
+  <div class="wrap stage" id="stage">
+    <header class="top">
+      <div class="row" style="gap:14px">
+        <div class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
+        <div><h1 style="font-size:20px;font-weight:600;letter-spacing:-.01em">Helm</h1><div class="muted" id="hostline" style="font-size:13px">connecting…</div></div>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <div class="pill" id="livepill"><span class="dot" id="livedot"></span><span id="livetext">Connecting</span></div>
+        <button class="btn" id="aiToggle" aria-pressed="false" title="Show or hide the assistant" style="font-size:12.5px"><span data-icon="sparkle"></span>Assistant<span class="switch" aria-hidden="true"></span></button>
+        <button class="btn ghost" id="muteBtn" aria-label="Mute all notifications" title="Mute all notifications"></button>
+        <button class="btn ghost" id="themeBtn" aria-label="Toggle light / dark theme" title="Theme"><span data-icon="moon"></span></button>
+        <button class="btn ghost" id="logoutBtn" aria-label="Sign out" title="Sign out" hidden><span data-icon="logout"></span></button>
+      </div>
+    </header>
+
+    <section class="card alerts" aria-labelledby="h-alerts" id="alertsCard">
+      <div class="between">
+        <div class="row" style="align-items:baseline;flex-wrap:wrap"><h2 id="h-alerts">Needs attention</h2><span class="muted" id="alertSummary" style="font-size:12.5px"></span></div>
+        <div class="row" style="gap:4px"><button class="btn ghost muted" id="silencedBtn" style="font-size:12.5px" hidden></button><button class="btn ghost muted" id="clearBtn" style="font-size:12.5px" hidden>Clear all</button></div>
+      </div>
+      <div id="alertBody"></div>
+    </section>
+
+    <div class="card askbar" id="askbar" hidden>
+      <span data-icon="sparkle" class="muted"></span>
+      <label for="askInput" class="sr">Ask the assistant</label>
+      <input id="askInput" class="askin" autocomplete="off" placeholder="Ask about your server — “what’s using the most CPU?”">
+      <span class="muted hint" id="askHint" style="font-size:12px;white-space:nowrap"></span>
+      <button class="btn primary" id="askBtn" style="min-height:40px;padding:0 14px">Ask</button>
+    </div>
+
+    <div class="panels" id="panels">
+      <section class="card panel" data-panel="system" aria-labelledby="h-sys">
+        <div class="between" style="align-items:baseline"><h2 id="h-sys">System</h2><div class="row" style="gap:6px"><span class="muted" id="cpuModel" style="font-size:12px"></span><span class="grip" title="Drag to reorder" aria-hidden="true">⠿</span></div></div>
+        <div style="display:flex;gap:20px;align-items:flex-end">
+          <div style="flex:1">
+            <div class="label" style="margin-bottom:4px">CPU — whole server</div>
+            <div class="num big" id="cpuBig">—</div>
+            <div class="muted" id="cpuSub" style="font-size:12.5px;margin-top:6px"></div>
+          </div>
+          <div class="threads" id="threads" role="img" aria-label="Per-thread CPU"></div>
+        </div>
+        <div class="note" style="font-size:12px;line-height:1.45">Container CPU is a share of the whole server, so it adds up to this number. “thr” is the same load in threads — 1.0 thr is one thread fully busy.</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="between" style="font-size:13px"><span>Memory</span><span class="num muted" id="memText">—</span></div>
+          <div class="track"><i id="memBar" style="width:0"></i></div>
+          <div class="between muted" style="font-size:12px"><span>Containers <span class="num" id="memCont">—</span></span><span>Cache <span class="num" id="memCache">—</span></span></div>
+        </div>
+      </section>
+
+      <section class="card panel" data-panel="storage" id="storagePanel" aria-labelledby="h-store">
+        <div class="between" style="align-items:baseline"><h2 id="h-store">Storage</h2><div class="row" style="gap:6px"><span class="num muted" id="storeTotal" style="font-size:12px"></span><span class="grip" title="Drag to reorder" aria-hidden="true">⠿</span></div></div>
+        <div id="drives" style="display:flex;flex-direction:column;gap:16px"></div>
+        <div style="margin-top:auto;padding-top:14px;border-top:1px solid var(--line)" class="between">
+          <div><div style="font-size:13px;font-weight:500">Backups</div><div class="muted" id="backupText" style="font-size:12.5px">—</div></div>
+          <button class="btn" data-act="backup">Back up now</button>
+        </div>
+      </section>
+
+      <section class="card panel" data-panel="network" aria-labelledby="h-net">
+        <div class="between" style="align-items:baseline"><h2 id="h-net">Network</h2><div class="row" style="gap:6px"><span class="muted" id="ifaceText" style="font-size:12px"></span><span class="grip" title="Drag to reorder" aria-hidden="true">⠿</span></div></div>
+        <div class="stat2">
+          <div><div class="label">Download now</div><div class="num" style="font-size:22px;font-weight:500;margin-top:2px"><span id="netDown">—</span> <span class="muted" style="font-size:12px">Mbps</span></div></div>
+          <div><div class="label">Upload now</div><div class="num" style="font-size:22px;font-weight:500;margin-top:2px"><span id="netUp">—</span> <span class="muted" style="font-size:12px">Mbps</span></div></div>
+        </div>
+        <div id="tsBlock"></div>
+        <div id="agBlock"></div>
+      </section>
+    </div>
+
+    <section aria-labelledby="h-svc" style="display:flex;flex-direction:column;gap:12px">
+      <div class="between">
+        <div class="row" style="align-items:baseline;flex-wrap:wrap"><h2 id="h-svc">Services</h2><span class="muted" id="svcSummary" style="font-size:12.5px"></span></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <button class="btn" id="regroupBtn" title="Rebuild groups from Docker Compose stacks">Group by stack</button>
+          <label class="sr" for="sortSel">Sort services</label>
+          <select id="sortSel" class="btn" style="padding-right:8px"><option value="cpu">Sort: CPU</option><option value="ram">Sort: RAM</option><option value="name">Sort: Name</option><option value="custom">Custom order (drag)</option></select>
+        </div>
+      </div>
+      <div class="ugrid" id="units"></div>
+    </section>
+
+    <section class="card panel" aria-labelledby="h-files" style="gap:14px">
+      <div class="between"><h2 id="h-files">Files <span class="muted" id="ftag" style="font-size:12px;font-weight:400"></span></h2><div class="row" id="froots" style="gap:6px;flex-wrap:wrap"></div></div>
+      <div class="between"><nav aria-label="Path" class="row" id="crumb" style="font-size:13px;gap:6px;flex-wrap:wrap"></nav><div class="row" style="gap:6px"><button class="btn" id="mkdirBtn">New folder</button><button class="btn ghost" id="frefresh" aria-label="Refresh"><span data-icon="refresh"></span></button></div></div>
+      <div class="table"><div id="filelist"></div></div>
+    </section>
+  </div>
+
+  <div id="chat" class="chat fadein" hidden>
+    <div class="between" style="justify-content:flex-end"><button class="btn ghost muted" id="newChatBtn" style="font-size:12.5px">New chat</button></div>
+    <div id="msgs" style="display:flex;flex-direction:column;gap:22px"></div>
+  </div>
+</div>
+
+<div class="card askbar composer" id="composer" hidden>
+  <span data-icon="sparkle" class="muted"></span>
+  <label for="composerInput" class="sr">Message the assistant</label>
+  <input id="composerInput" class="askin" autocomplete="off" placeholder="Ask a follow-up…">
+  <button class="btn primary" id="composerBtn" style="min-height:40px;padding:0 14px">Send</button>
+</div>
+
+<nav class="viewpill pillin" id="viewpill" aria-label="Switch view" hidden>
+  <button id="pillDash" aria-pressed="true">Helm</button><button id="pillChat" aria-pressed="false">Chat</button>
+</nav>
+
+<div class="overlay" id="detail"><button class="scrim" data-close aria-label="Close"></button><div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="dTitle" id="detailBox"></div></div>
+<div class="overlay" id="plan"><button class="scrim" data-close aria-label="Close"></button><div class="card dialog wide" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+  <div class="dhead"><h2 id="pTitle" style="flex:1;font-size:16px">Safe update</h2><button class="btn ghost" data-close aria-label="Close"><span data-icon="x"></span></button></div>
+  <div class="dbody" id="planBody"></div></div></div>
+<div class="overlay" id="login"><div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="lTitle">
+  <div class="logo" style="margin:0 auto 6px" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></div>
+  <h2 id="lTitle" style="font-size:18px">Helm</h2><p class="muted" style="margin:0 0 6px;font-size:13px">Enter your dashboard password</p>
+  <div id="loginErr" style="color:var(--bad);font-size:12.5px;min-height:16px"></div>
+  <label for="pw" class="sr">Password</label><input type="password" id="pw" placeholder="Password" autocomplete="current-password">
+  <button class="btn primary" id="loginBtn" style="min-height:42px">Unlock</button></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ================================================================ icons == */
+const IC={
+  sparkle:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
+  moon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  logout:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',
+  bell:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>',
+  belloff:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8.7 3.2A6 6 0 0 1 18 8c0 3 .5 5 1.2 6.4M17 17H3s3-2 3-9c0-.6.1-1.2.3-1.8M10.3 21a1.9 1.9 0 0 0 3.4 0M2 2l20 20"/></svg>',
+  x:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  chev:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
+  folder:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" class="muted" style="flex:none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  file:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" class="muted" style="flex:none"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
+  trash:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  refresh:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>',
+  up:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'
+};
+document.querySelectorAll("[data-icon]").forEach(el=>el.innerHTML=IC[el.dataset.icon]);
+
+/* ============================================================== helpers == */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+async function jget(p){const r=await fetch(p,{credentials:"same-origin"});if(r.status===401)throw{auth:true};return r.json();}
+async function jpost(p,body){const r=await fetch(p,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});if(r.status===401)throw{auth:true};return r.json().catch(()=>({}));}
+let toastT;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2400);}
+const pct=v=>(v==null?"—":(v<10?(+v).toFixed(1):Math.round(v))+"%");
+const thr=v=>v==null?"":(+v).toFixed(2)+" thr";
+const mb=v=>!v?"—":v>=1024?(v/1024).toFixed(1)+" GB":Math.round(v)+" MB";
+const gbs=v=>v>=1000?(v/1000).toFixed(2)+" TB":Math.round(v)+" GB";
+function bytes(b){if(!b)return"0 B";const u=["B","KB","MB","GB","TB"];let i=0;while(b>=1024&&i<4){b/=1024;i++;}return (i>=2?b.toFixed(1):Math.round(b))+" "+u[i];}
+function dur(sec){if(sec==null||sec<0)return"—";const d=Math.floor(sec/86400),h=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60);return d?`${d} d ${h} h`:h?`${h} h ${m} min`:`${Math.max(m,1)} min`;}
+function ago(ts){if(!ts)return null;const s=Date.now()/1000-ts;if(s<90)return"just now";if(s<3600)return Math.round(s/60)+" min ago";if(s<86400)return Math.round(s/3600)+" h ago";return Math.round(s/86400)+" d ago";}
+function when(ts){if(!ts)return"—";return new Date(ts*1000).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});}
+function pretty(n){n=String(n||"").replace(/[-_]\d+$/,"").replace(/[-_]+/g," ").trim();return n.replace(/\b\w/g,c=>c.toUpperCase());}
+function mono(n){const w=pretty(n).split(" ").filter(Boolean);return w.length>1?(w[0][0]+w[1][0]).toUpperCase():(w[0]||"?").slice(0,2).replace(/^./,c=>c.toUpperCase());}
+
+/* ================================================================ state == */
+const S={me:null,demo:true,containers:[],threads:8,system:null,drives:[],backups:null,net:null,alerts:null,
+  board:null,open:null,sort:store.get("helm_sort","cpu"),alertMenu:null,showSilenced:false,
+  ai:null,phase:"dash",msgs:store.get("helm_chat",[]),busy:false,detail:null};
+
+/* ================================================================ theme == */
+function applyTheme(){const t=store.get("helm_theme",null);if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;}
+$("themeBtn").onclick=()=>{const dark=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim().toLowerCase()==="#121211";store.set("helm_theme",dark?"light":"dark");applyTheme();};
+applyTheme();
+
+/* ================================================================= auth == */
+function showLogin(v){$("login").classList.toggle("show",v);document.body.classList.toggle("locked",v);if(v)setTimeout(()=>$("pw").focus(),50);}
+$("loginBtn").onclick=doLogin;$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin();});
+async function doLogin(){try{const r=await jpost("/api/login",{password:$("pw").value});if(r.ok){$("loginErr").textContent="";$("pw").value="";await boot();}else $("loginErr").textContent=r.error||"Login failed";}catch(e){$("loginErr").textContent="Wrong password";}}
+$("logoutBtn").onclick=async()=>{await jpost("/api/logout");location.reload();};
+
+/* ======================================================== data fetching == */
+function authFail(e){if(e&&e.auth){showLogin(true);return true;}return false;}
+async function loadContainers(){
+  try{const d=await jget("/api/containers");S.containers=d.containers||[];S.demo=!!d.demo;S.threads=d.threads||S.threads;reconcileBoard();renderLive(d.error);renderUnits();if(S.detail)renderDetail();}
+  catch(e){if(!authFail(e))renderLive(null,true);}
+}
+async function loadSystem(){try{S.system=await jget("/api/system");renderSystem();}catch(e){authFail(e);}}
+async function loadStorage(){try{const d=await jget("/api/storage");S.drives=d.drives||[];renderStorage();}catch(e){authFail(e);}}
+async function loadBackups(){try{S.backups=await jget("/api/backups");renderStorage();}catch(e){authFail(e);}}
+async function loadNet(){try{S.net=await jget("/api/network");renderNet();}catch(e){authFail(e);}}
+async function loadAlerts(){try{S.alerts=await jget("/api/alerts");renderAlerts();}catch(e){authFail(e);}}
+
+/* =============================================================== header == */
+function renderLive(err,offline){
+  const up=S.containers.filter(c=>c.status==="running").length,dot=$("livedot");
+  if(offline){dot.style.background="var(--bad)";$("livetext").textContent="Offline";return;}
+  dot.style.background=S.demo?"var(--warn)":"var(--ok)";
+  $("livetext").innerHTML=(S.demo?"Demo data":"Live")+` · <span class="num">${up}/${S.containers.length}</span> running`;
+  $("livepill").title=S.demo?("Can't reach Docker — showing sample data. "+(err||"")):"Connected to Docker";
+}
+function renderHost(){const s=S.system||{};$("hostline").textContent=[s.hostname,s.os,s.uptime_days!=null?"up "+Math.floor(s.uptime_days)+" days":null].filter(Boolean).join(" · ")+(s.demo?" · sample data":"");}
+
+/* =============================================================== alerts == */
+function renderAlerts(){
+  const A=S.alerts||{alerts:[],silenced:[],muted:false},n=A.alerts.length;
+  $("muteBtn").innerHTML=A.muted?IC.belloff:IC.bell;
+  const ml=A.muted?"Unmute notifications":"Mute all notifications";$("muteBtn").setAttribute("aria-label",ml);$("muteBtn").title=ml;
+  $("alertSummary").textContent=n?`${n} item${n>1?"s":""} · all else passing`:"Nothing needs you right now";
+  $("clearBtn").hidden=!n;
+  const sb=$("silencedBtn");sb.hidden=!A.silenced.length;sb.textContent=S.showSilenced?"Hide silenced":`Silenced (${A.silenced.length})`;
+  let h="";
+  if(A.muted)h+=`<div class="note between" style="margin-bottom:8px"><span>Notifications muted — alerts still show here, but nothing is pushed to your phone.</span><button class="btn sm" data-act="unmute">Unmute</button></div>`;
+  else if(!A.push&&n)h+="";
+  if(n){h+='<div class="agrid">'+A.alerts.map(a=>{const id=esc(a.id);const ac=a.action||{};return `<div class="alert a-${esc(a.level)}">
+    <div class="row"><span class="dot" aria-hidden="true"></span><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:500">${esc(a.title)}</div><div class="muted" style="font-size:12.5px">${esc(a.detail)}</div></div>
+    ${ac.label?`<button class="btn sm" data-act="alertAction" data-aid="${id}">${esc(ac.label)}</button>`:""}
+    <button class="btn ghost sm" data-act="alertMenu" data-aid="${id}" aria-label="Silence ${esc(a.title)}" title="Silence">${IC.belloff}</button>
+    <button class="btn ghost sm" data-act="dismiss" data-aid="${id}" aria-label="Dismiss ${esc(a.title)}" title="Dismiss">${IC.x}</button></div>
+    ${S.alertMenu===a.id?`<div class="row" style="gap:6px;flex-wrap:wrap;padding-left:18px"><span class="muted" style="font-size:12px">Silence for</span>
+      <button class="btn sm" data-act="snooze" data-mode="1h" data-aid="${id}">1 hour</button><button class="btn sm" data-act="snooze" data-mode="1d" data-aid="${id}">1 day</button>
+      <button class="btn sm" data-act="snooze" data-mode="change" data-aid="${id}">Until it changes</button><button class="btn sm" data-act="snooze" data-mode="never" data-aid="${id}">Never alert on this</button></div>`:""}
+  </div>`;}).join("")+'</div>';}
+  else h+=`<div class="muted" style="font-size:13px;padding:2px 0 4px">All clear. New issues will show up here.</div>`;
+  if(S.showSilenced&&A.silenced.length)h+='<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:6px">'+A.silenced.map(s=>`<div class="row" style="font-size:13px;padding:5px 0"><span class="muted" style="flex:1">${esc(s.title)} · <span style="font-size:12px">${esc(s.how)}</span></span><button class="btn sm" data-act="restore" data-aid="${esc(s.id)}">Restore</button></div>`).join("")+'</div>';
+  $("alertBody").innerHTML=h;
+}
+async function alertPost(path,body){try{S.alerts=await jpost(path,body);S.alertMenu=null;renderAlerts();}catch(e){authFail(e);}}
+$("clearBtn").onclick=()=>alertPost("/api/alerts/clear");
+$("silencedBtn").onclick=()=>{S.showSilenced=!S.showSilenced;renderAlerts();};
+$("muteBtn").onclick=()=>alertPost("/api/alerts/mute",{muted:!(S.alerts&&S.alerts.muted)});
+function runAlertAction(aid){const a=(S.alerts.alerts||[]).find(x=>x.id===aid);if(!a)return;const ac=a.action||{};
+  if(ac.type==="storage"){$("storagePanel").scrollIntoView({behavior:"smooth",block:"center"});}
+  else if(ac.type==="update")showPlan(ac.id);
+  else if(ac.type==="backup")showBackupCmd();
+  else if(["restart","start","unpause"].includes(ac.type))doAction(ac.id,ac.type);}
+
+/* =============================================================== system == */
+function renderSystem(){
+  const s=S.system;if(!s)return;renderHost();
+  $("cpuModel").textContent=[s.cpu_model,s.cores&&s.threads?`${s.cores} cores / ${s.threads} threads`:null].filter(Boolean).join(" · ");
+  $("cpuBig").innerHTML=`${Math.round(s.cpu)}<span class="muted" style="font-size:18px">%</span>`;
+  $("cpuSub").innerHTML=`≈ <span class="num">${s.busy_threads}</span> of ${s.threads} threads busy`+(s.load&&s.load.length?` · load <span class="num">${s.load[0]}</span>`:"");
+  const per=s.per_thread||[];
+  $("threads").innerHTML=per.map((v,i)=>`<div class="thread"><div class="col"><i style="height:${Math.min(v,100)}%"></i></div><span class="num muted" style="font-size:9.5px">${i}</span></div>`).join("");
+  $("threads").setAttribute("aria-label","Per-thread CPU: "+per.map((v,i)=>`thread ${i} ${v}%`).join(", "));
+  $("threads").style.display=per.length>24?"none":"flex";
+  $("memText").textContent=`${s.mem_used} / ${s.mem_total} GB`;
+  $("memBar").style.width=(s.mem_total?s.mem_used/s.mem_total*100:0)+"%";
+  $("memCache").textContent=s.mem_cache!=null?s.mem_cache+" GB":"—";
+  const cm=S.containers.reduce((a,c)=>a+(c.mem_used||0),0);$("memCont").textContent=mb(cm);
+}
+
+/* ============================================================== storage == */
+function renderStorage(){
+  const D=S.drives||[];let used=0,total=0;
+  $("drives").innerHTML=D.map(d=>{used+=d.used;total+=d.total;const cls=d.pct>=92?"crit":d.pct>=80?"warn":"";
+    const col=cls==="crit"?"var(--bad)":cls==="warn"?"var(--warn)":"var(--muted)";
+    return `<div style="display:flex;flex-direction:column;gap:6px"><div class="between" style="align-items:baseline;gap:8px;flex-wrap:nowrap"><span style="font-size:13.5px;font-weight:500" class="ell">${esc(d.name)} <span class="num muted" style="font-weight:400;font-size:12px">${esc(d.mount)}</span></span><span class="num" style="font-size:12.5px;color:${col};white-space:nowrap">${gbs(d.used)} / ${gbs(d.total)} · ${d.pct}%</span></div><div class="track"><i class="${cls}" style="width:${d.pct}%"></i></div></div>`;}).join("")||'<div class="muted">No drives configured (set DRIVES).</div>';
+  $("storeTotal").textContent=total?`${gbs(used)} of ${gbs(total)}`:"";
+  const b=S.backups;let t;
+  if(!b||b.configured===false)t="Not configured — set BACKUP_STATUS to show your backup status here.";
+  else if(!b.ok)t="No backup run recorded yet.";
+  else{const fin=b.finished?new Date(b.finished):null;const dbs=Object.values(b.databases||{});const okdb=dbs.filter(x=>x.status==="ok").length;
+    t=`Last run ${fin?ago(fin.getTime()/1000):"—"} · snapshot ${b.snapshot==="ok"?"OK":"failed"}`+(dbs.length?` · ${okdb}/${dbs.length} DB dumps OK`:"");}
+  $("backupText").textContent=t;
+}
+function showBackupCmd(){openPlan("Back up now",'<p class="muted" style="margin:0 0 10px">Run this on your server for an immediate backup (dumps all databases, then snapshots configs):</p>'+cmdBlock((S.me&&S.me.backup_command)||"~/helm-backups/run-backup.sh"));}
+
+/* ============================================================== network == */
+function kvBlock(title,rows){return `<div><div class="cap" style="padding-bottom:6px">${title}</div>${rows.map(r=>`<div class="kv"><span class="muted">${esc(r[0])}</span><span class="num" style="color:${r[2]||"var(--ink)"};text-align:right">${esc(r[1])}</span></div>`).join("")}</div>`;}
+function renderNet(){
+  const N=S.net||{},n=N.network||{},t=N.tailscale||{},a=N.adguard||{};
+  $("netDown").textContent=n.enabled&&n.down_mbps!=null?n.down_mbps:"—";$("netUp").textContent=n.enabled&&n.up_mbps!=null?n.up_mbps:"—";
+  $("ifaceText").textContent=n.enabled?[n.iface,n.link_mbps?(n.link_mbps>=1000?n.link_mbps/1000+" Gbps":n.link_mbps+" Mbps")+" link":null].filter(Boolean).join(" · "):"";
+  if(!t.enabled)$("tsBlock").innerHTML=kvBlock("Tailscale",[["Status","Not configured","var(--muted)"]]);
+  else if(t.error)$("tsBlock").innerHTML=kvBlock("Tailscale",[["Status","Can't read tailscaled","var(--warn)"]]);
+  else{const rows=[[t.hostname||"This server",t.online?"Online":(t.backend||"Offline"),t.online?"var(--ok)":"var(--bad)"],["Exit node",t.exit_node_offered?"Offered":"Not offered"]];
+    if(t.routes&&t.routes.length)rows.push(["Subnet routes",t.routes.join(", ")]);
+    if(t.using_exit_node)rows.push(["Using exit node",t.using_exit_node]);
+    rows.push(["Peers online",`${t.peers_online} of ${t.peers_total}`]);$("tsBlock").innerHTML=kvBlock("Tailscale",rows);}
+  if(!a.enabled)$("agBlock").innerHTML="";
+  else if(a.error)$("agBlock").innerHTML=kvBlock("AdGuard Home",[["Status","Can't reach AdGuard","var(--warn)"]]);
+  else $("agBlock").innerHTML=kvBlock("AdGuard Home",[["Protection",a.protection?"On":"Off",a.protection?"var(--ok)":"var(--warn)"],[`Queries${a.window_hours?`, ${a.window_hours} h`:""}`,a.queries.toLocaleString()],["Blocked",a.blocked_pct+"%"]]);
+}
+
+/* ======================================================== services board == */
+// board nodes: {type:"item",id:<container name>} | {type:"group",name,ids:[names],project?}
+const byName=n=>S.containers.find(c=>c.cname===n);
+function buildStackBoard(){
+  const proj={};S.containers.forEach(c=>{if(c.project)(proj[c.project]=proj[c.project]||[]).push(c.cname);});
+  const nb=[],seen=new Set();
+  S.containers.forEach(c=>{const p=c.project;if(p&&proj[p].length>=2){if(!seen.has(p)){seen.add(p);nb.push({type:"group",name:pretty(p),project:p,ids:proj[p].slice()});}}else nb.push({type:"item",id:c.cname});});
+  return nb;
+}
+function reconcileBoard(){
+  if(!S.containers.length)return;
+  if(!S.board){S.board=buildStackBoard();return;}
+  const live=new Set(S.containers.map(c=>c.cname));
+  S.board=S.board.filter(n=>{if(n.type==="item")return live.has(n.id);n.ids=n.ids.filter(i=>live.has(i));return n.ids.length>0;})
+    .flatMap(n=>n.type==="group"&&n.ids.length===1?[{type:"item",id:n.ids[0]}]:[n]);
+  const have=new Set();S.board.forEach(n=>n.type==="item"?have.add(n.id):n.ids.forEach(i=>have.add(i)));
+  S.containers.forEach(c=>{if(have.has(c.cname))return;
+    const g=c.project&&S.board.find(n=>n.type==="group"&&n.project===c.project);if(g)g.ids.push(c.cname);else S.board.push({type:"item",id:c.cname});});
+}
+function urlFor(c){if(!c)return null;if(c.url)return c.url;const p=(c.ports||[]).find(p=>p.public&&/tcp/.test(p.private)&&![22,53,3306,5432,6379].includes(+p.private.split("/")[0]));return p?`${location.protocol==="https:"?"http:":location.protocol}//${location.hostname}:${p.public}`:null;}
+function unitOf(n,ni){
+  const ms=(n.type==="item"?[n.id]:n.ids).map(byName).filter(Boolean);
+  const cpu=ms.reduce((a,c)=>a+(c.cpu||0),0),t=ms.reduce((a,c)=>a+(c.cpu_thr||0),0),ram=ms.reduce((a,c)=>a+(c.mem_used||0),0);
+  const up=ms.filter(c=>c.status==="running").length,paused=ms.filter(c=>c.status==="paused").length,upd=ms.filter(c=>c.update);
+  const single=n.type==="item",c0=ms[0]||{};
+  const status=paused?"paused":up===ms.length?"running":"stopped";
+  return {n,ni,ms,single,name:single?pretty(c0.name):n.name,cpu,thr:t,ram,up,paused,upd,status,
+    badge:paused?"Paused":up===ms.length?(single?"Running":`${up}/${ms.length} up`):(single?pretty(c0.status):`${up}/${ms.length} up`),
+    url:ms.map(urlFor).find(Boolean),project:single?c0.project:(n.project||(ms.every(m=>m.project&&m.project===c0.project)?c0.project:null))};
+}
+function sortedUnits(){
+  const us=(S.board||[]).map(unitOf).filter(u=>u.ms.length);
+  if(S.sort==="cpu")us.sort((a,b)=>b.cpu-a.cpu);else if(S.sort==="ram")us.sort((a,b)=>b.ram-a.ram);else if(S.sort==="name")us.sort((a,b)=>a.name.localeCompare(b.name));
+  return us;
+}
+function hostMemMB(){return S.system?S.system.mem_total*1024:32768;}
+function cardHTML(u){
+  const draggable=S.sort==="custom";
+  const c0=u.ms[0];
+  const foot=u.upd.length?`<span style="font-size:12px;color:var(--accent)">Update available</span>`:
+    `<span class="muted" style="font-size:12px">${u.single?(c0.status==="running"?"Online "+dur(Date.now()/1000-(c0.started_at||0)):pretty(c0.status_text||c0.status)):"Show "+u.ms.length+" containers"}</span>`;
+  return `<div class="card ucard" data-ni="${u.ni}">
+    ${draggable?`<span class="ugrip" data-grip title="Drag to reorder · drop onto another card to group">⠿</span>`:""}
+    <button class="unit" data-act="${u.single?"detail":"expand"}" data-name="${esc(u.single?c0.cname:"")}" data-ni="${u.ni}" aria-label="${u.single?"Details for ":"Expand "}${esc(u.name)}">
+      <span class="row" style="width:100%"><span class="mono-tile" aria-hidden="true">${esc(mono(u.name))}</span>
+        <span style="flex:1;min-width:0"><span class="ell" style="display:block;font-size:14px;font-weight:600">${esc(u.name)}</span><span class="muted ell" style="display:block;font-size:12px">${u.single?esc(c0.ver):u.ms.length+" containers"}</span></span>
+        <span class="badge b-${u.status}">${esc(u.badge)}</span></span>
+      <span style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%">
+        <span style="display:flex;flex-direction:column;gap:5px"><span class="label">CPU</span><span class="num" style="font-size:15px">${u.up?pct(u.cpu):"—"} <span class="muted" style="font-size:11.5px">${u.up?thr(u.thr):""}</span></span><span class="track thin"><i style="width:${Math.min(100,u.cpu)}%"></i></span></span>
+        <span style="display:flex;flex-direction:column;gap:5px"><span class="label">RAM</span><span class="num" style="font-size:15px">${mb(u.ram)}</span><span class="track thin"><i style="width:${Math.min(100,u.ram/hostMemMB()*100)}%"></i></span></span>
+      </span>
+    </button>
+    <div class="ufoot">${foot}${u.url?`<a class="btn sm" href="${esc(u.url)}" target="_blank" rel="noopener">Open ↗</a>`:""}</div></div>`;
+}
+function bandHTML(u){
+  return `<div class="card band" data-ni="${u.ni}">
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      <button class="btn ghost" data-act="expand" data-ni="${u.ni}" aria-label="Collapse ${esc(u.name)}" style="padding:0 8px">${IC.chev}</button>
+      <span class="mono-tile" aria-hidden="true">${esc(mono(u.name))}</span>
+      <div><div style="font-size:15px;font-weight:600">${esc(u.name)}</div><div class="muted" style="font-size:12.5px">${u.ms.length} containers · ${u.up} up</div></div>
+      <div class="row" style="gap:22px;margin-left:auto;flex-wrap:wrap">
+        <div><div class="label">Stack CPU</div><div class="num" style="font-size:15px">${pct(u.cpu)} <span class="muted" style="font-size:12px">${thr(u.thr)}</span></div></div>
+        <div><div class="label">Stack RAM</div><div class="num" style="font-size:15px">${mb(u.ram)}</div></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          ${u.url?`<a class="btn" href="${esc(u.url)}" target="_blank" rel="noopener">Open ↗</a>`:""}
+          <button class="btn" data-act="stackRestart" data-ni="${u.ni}">Restart stack</button>
+          ${u.upd.length?`<button class="btn accent" data-act="plan" data-id="${esc(u.upd[0].id)}">Update</button>`:""}
+          <button class="btn ghost" data-act="rename" data-ni="${u.ni}">Rename</button>
+          <button class="btn ghost" data-act="ungroup" data-ni="${u.ni}">Ungroup</button>
+        </div></div></div>
+    <div class="table"><div class="trow head mrow"><span>Container</span><span>Status</span><span>CPU · % of server</span><span>RAM</span><span>Online for</span><span></span></div>
+    ${u.ms.map(c=>`<div class="trow mrow"><div style="min-width:0"><button class="linkbtn" data-act="detail" data-name="${esc(c.cname)}">${esc(c.name)}</button><div class="num muted ell" style="font-size:11.5px">${esc(c.ver)}${c.update&&c.new_ver?" → "+esc(c.new_ver):""}</div></div>
+      <span><span class="badge b-${c.status}">${esc(c.status)}</span></span>
+      <div class="row" style="gap:8px"><div class="track thin" style="flex:1"><i style="width:${Math.min(100,c.cpu||0)}%"></i></div><span class="num" style="font-size:12px;min-width:92px;text-align:right">${c.status==="running"?pct(c.cpu):"—"} <span class="muted">${c.status==="running"?thr(c.cpu_thr):""}</span></span></div>
+      <span class="num" style="font-size:12.5px">${mb(c.mem_used)}</span>
+      <span class="num muted" style="font-size:12.5px">${c.status==="running"?dur(Date.now()/1000-(c.started_at||0)):"—"}</span>
+      <div class="row" style="gap:4px;justify-content:flex-end"><button class="btn sm" data-act="restart" data-id="${esc(c.id)}">Restart</button><button class="btn sm" data-act="detail" data-name="${esc(c.cname)}">Details</button></div></div>`).join("")}
+    </div></div>`;
+}
+function renderUnits(){
+  if(dragging)return;
+  const us=sortedUnits();
+  const total=S.containers.length;
+  $("svcSummary").textContent=total?`${total} containers in ${us.length} services · CPU as % of server`:"";
+  $("units").innerHTML=us.map(u=>!u.single&&S.open===(u.n.project||u.n.name)?bandHTML(u):cardHTML(u)).join("")||'<div class="muted">No containers found.</div>';
+  if(S.sort==="custom")initDrag();
+}
+$("regroupBtn").onclick=()=>{S.board=buildStackBoard();saveLayout();renderUnits();toast("Grouped by stack");};
+$("sortSel").value=S.sort;$("sortSel").onchange=e=>{S.sort=e.target.value;store.set("helm_sort",S.sort);renderUnits();if(S.sort==="custom")toast("Drag cards to reorder · drop onto another card to group");};
+
+async function doAction(id,act){
+  const c=S.containers.find(x=>x.id===id);toast(`${act==="unpause"?"Resuming":act[0].toUpperCase()+act.slice(1).replace(/e$/,"")+"ing"} ${c?pretty(c.name):""}…`);
+  try{const r=await jpost(`/api/containers/${encodeURIComponent(id)}/${act}`);toast(r.ok===false?"⚠ "+(r.note||r.error||act+" failed"):"Done");}catch(e){if(!authFail(e))toast("⚠ "+act+" failed");}
+  setTimeout(()=>{loadContainers();loadAlerts();},900);
+}
+async function stackRestart(u){
+  if(!confirm(`Restart all ${u.ms.length} containers in ${u.name}?`))return;
+  toast(`Restarting ${u.name}…`);
+  try{if(u.project){const r=await jpost(`/api/stacks/${encodeURIComponent(u.project)}/restart`);if(r.ok===false)throw r;}
+    else for(const c of u.ms)await jpost(`/api/containers/${encodeURIComponent(c.id)}/restart`);toast("Restarted "+u.name);}
+  catch(e){if(!authFail(e))toast("⚠ "+(e.error||"restart failed"));}
+  setTimeout(loadContainers,1200);
+}
+
+/* ------------------------------------------------------------ drag & group */
+let dragging=false;
+function clearCues(){document.querySelectorAll(".cue-before,.cue-after,.cue-group").forEach(x=>x.classList.remove("cue-before","cue-after","cue-group"));}
+function initDrag(){
+  let drag=null;
+  $("units").querySelectorAll(".ucard").forEach(el=>{
+    const g=el.querySelector("[data-grip]");if(!g)return;
+    g.addEventListener("mousedown",()=>el.setAttribute("draggable","true"));
+    el.addEventListener("mouseup",()=>el.removeAttribute("draggable"));
+    el.addEventListener("dragstart",e=>{drag=el;dragging=true;el.classList.add("dragging");e.dataTransfer.effectAllowed="move";});
+    el.addEventListener("dragend",()=>{el.classList.remove("dragging");el.removeAttribute("draggable");clearCues();drag=null;dragging=false;renderUnits();});
+    el.addEventListener("dragover",e=>{e.preventDefault();if(!drag||el===drag)return;clearCues();const r=el.getBoundingClientRect(),f=(e.clientX-r.left)/r.width;
+      const isItem=S.board[+drag.dataset.ni].type==="item";el.classList.add(isItem&&f>.28&&f<.72?"cue-group":f<.5?"cue-before":"cue-after");});
+    el.addEventListener("dragleave",()=>el.classList.remove("cue-before","cue-after","cue-group"));
+    el.addEventListener("drop",e=>{e.preventDefault();if(!drag||el===drag)return;const grp=el.classList.contains("cue-group"),before=el.classList.contains("cue-before");clearCues();
+      const from=+drag.dataset.ni,to=+el.dataset.ni;dragging=false;grp?doGroup(from,to):reorder(from,to,before);});
+  });
+}
+function reorder(from,to,before){const node=S.board[from];const rest=S.board.filter((_,i)=>i!==from);let t=rest.indexOf(S.board[to]);rest.splice(before?t:t+1,0,node);S.board=rest;saveLayout();renderUnits();}
+function doGroup(from,to){const d=S.board[from],t=S.board[to];if(d.type!=="item")return;
+  if(t.type==="group"){t.ids.push(d.id);S.board.splice(from,1);saveLayout();renderUnits();toast(`Added to ${t.name}`);return;}
+  const name=(prompt("Name this group:","My group")||"").trim();if(!name){renderUnits();return;}
+  const g={type:"group",name,ids:[t.id,d.id]};const tgt=S.board[to];const rest=S.board.filter((_,i)=>i!==from);rest.splice(rest.indexOf(tgt),1,g);S.board=rest;saveLayout();renderUnits();toast(`Created ${name}`);}
+
+/* --------------------------------------------------------------- layout */
+let saveT;function saveLayout(){clearTimeout(saveT);saveT=setTimeout(async()=>{const data={v:2,board:S.board,panels:[...$("panels").children].map(p=>p.dataset.panel)};
+  store.set("helm_layout",data);try{await fetch("/api/layout",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({layout:data})});}catch(e){}},400);}
+async function loadLayout(){let L=null;try{L=(await jget("/api/layout")).layout;}catch(e){}if(!L||L.v!==2)L=store.get("helm_layout",null);
+  if(L&&L.v===2){if(Array.isArray(L.board))S.board=L.board;(L.panels||[]).forEach(k=>{const el=$("panels").querySelector(`[data-panel="${k}"]`);if(el)$("panels").appendChild(el);});}}
+function initPanelDrag(){let drag=null;const P=$("panels");
+  P.querySelectorAll(".panel").forEach(p=>{const g=p.querySelector(".grip");
+    g.addEventListener("mousedown",()=>p.setAttribute("draggable","true"));p.addEventListener("mouseup",()=>p.removeAttribute("draggable"));
+    p.addEventListener("dragstart",e=>{drag=p;p.classList.add("dragging");e.dataTransfer.effectAllowed="move";});
+    p.addEventListener("dragend",()=>{p.classList.remove("dragging");p.removeAttribute("draggable");P.querySelectorAll(".dragover").forEach(x=>x.classList.remove("dragover"));drag=null;saveLayout();});
+    p.addEventListener("dragover",e=>{if(!drag)return;e.preventDefault();if(p!==drag)p.classList.add("dragover");});
+    p.addEventListener("dragleave",()=>p.classList.remove("dragover"));
+    p.addEventListener("drop",e=>{e.preventDefault();p.classList.remove("dragover");if(drag&&p!==drag){const it=[...P.children];it.indexOf(drag)<it.indexOf(p)?p.after(drag):p.before(drag);}});});}
+
+/* ========================================================= detail pop-up == */
+function openDetail(name){S.detail=name;renderDetail();$("detail").classList.add("show");setTimeout(()=>{const b=$("detailBox").querySelector("[data-close]");if(b)b.focus();},30);}
+function renderDetail(){
+  const c=byName(S.detail);if(!c){closeOverlay("detail");return;}
+  const now=Date.now()/1000,running=c.status==="running",url=urlFor(c),track=S.me&&S.me.access_tracking;
+  const ports=(c.ports||[]).map(p=>p.public?`${p.public} → ${p.private}`:p.private).join(", ")||"—";
+  const last=c.last_access?ago(c.last_access):(track?(c.domain?"No visits logged":"Not behind Proxy Manager"):"Not tracked");
+  const lastSub=c.last_access?[c.last_client,c.domain].filter(Boolean).join(" · "):(track?"":"set NPM_DATA_DIR to track");
+  const memSub=c.mem_limit?`limit ${mb(c.mem_limit)}`:"no limit set";
+  const facts=[
+    ["Online for",running?dur(now-(c.started_at||now)):"—",c.started_at?(running?"since ":"last started ")+when(c.started_at):""],
+    ["Last accessed",last,lastSub],
+    ["CPU · % of server",running?`${pct(c.cpu)} · ${thr(c.cpu_thr)}`:"—",c.cpu_peak!=null?`24 h peak ${pct(c.cpu_peak)}`:""],
+    ["Memory",mb(c.mem_used),memSub],
+    ["Restarts",String(c.restarts??0),"since created"],
+    ["Health",c.health?pretty(c.health):"No healthcheck",""],
+    ["Ports",ports,c.domain||""],
+    ["Network since start",running?`↓ ${bytes(c.net_rx)} · ↑ ${bytes(c.net_tx)}`:"—",""],
+    ["Stack",c.project?pretty(c.project):"—",""],
+    ["Version",c.ver||"—",c.update?(c.new_ver||"newer")+" available":"up to date"],
+  ];
+  const primary=c.status==="running"?["pause","Pause"]:c.status==="paused"?["unpause","Resume"]:["start","Start"];
+  $("detailBox").innerHTML=`<div class="dhead"><span class="mono-tile" style="width:40px;height:40px" aria-hidden="true">${esc(mono(c.name))}</span>
+    <div style="flex:1;min-width:0"><div class="row" style="gap:8px;flex-wrap:wrap"><h2 id="dTitle" style="font-size:17px">${esc(c.name)}</h2><span class="badge b-${c.status}">${esc(c.status_text||c.status)}</span></div>
+    <div class="num muted ell" style="font-size:12px;margin-top:3px">${esc(c.image)}</div></div>
+    <button class="btn ghost" data-close aria-label="Close" style="padding:0 8px">${IC.x}</button></div>
+    <div class="dbody facts">${facts.map(f=>`<div style="min-width:0"><div class="label">${esc(f[0])}</div><div class="num ell" style="font-size:13.5px;margin-top:2px">${esc(f[1])}</div><div class="label ell">${esc(f[2])}</div></div>`).join("")}</div>
+    <div style="padding:0 20px 16px;display:flex;flex-direction:column;gap:6px"><div class="label">Mounts</div>${(c.mounts||[]).length?(c.mounts.map(m=>`<div class="chip num">${esc(m.src)} → ${esc(m.dst)}${m.rw?"":" (ro)"}</div>`).join("")):'<div class="chip num">—</div>'}</div>
+    <div class="dfoot">${url?`<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open web UI ↗</a>`:""}
+      <button class="btn" data-act="${primary[0]}" data-id="${esc(c.id)}">${primary[1]}</button>
+      <button class="btn" data-act="restart" data-id="${esc(c.id)}">Restart</button>
+      <button class="btn" data-act="logs" data-id="${esc(c.id)}">Logs</button>
+      ${c.update?`<button class="btn accent" data-act="plan" data-id="${esc(c.id)}">Update${c.new_ver?" to "+esc(c.new_ver):""}</button>`:""}</div>`;
+}
+function closeOverlay(id){$(id).classList.remove("show");if(id==="detail")S.detail=null;}
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{if(e.target.closest("[data-close]"))closeOverlay(o.id);}));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){["plan","detail"].forEach(id=>{if($(id).classList.contains("show")){closeOverlay(id);}});if(S.alertMenu){S.alertMenu=null;renderAlerts();}}});
+async function showLogs(id){openPlan("Logs",'<p class="muted">Loading…</p>');
+  try{const r=await fetch(`/api/containers/${encodeURIComponent(id)}/logs?tail=300`);const t=await r.text();const c=S.containers.find(x=>x.id===id);
+    $("pTitle").textContent="Logs — "+(c?c.name:id);$("planBody").innerHTML=`<pre class="code logs">${esc(t||"(no output)")}</pre>`;const p=$("planBody").querySelector("pre");p.scrollTop=p.scrollHeight;}
+  catch(e){$("planBody").innerHTML='<p class="muted">Couldn\'t load logs.</p>';}}
+
+/* =========================================================== safe update == */
+let _cmd=0;function cmdBlock(c){const id="cmd"+(++_cmd);return `<div class="cmd"><pre class="code" id="${id}">${esc(c)}</pre><button class="btn sm" data-act="copy" data-target="${id}">Copy</button></div>`;}
+function openPlan(title,html){$("pTitle").textContent=title;$("planBody").innerHTML=html;$("plan").classList.add("show");}
+async function showPlan(id){openPlan("Safe update",'<p class="muted">Building plan…</p>');let p;
+  try{p=await jget("/api/containers/"+encodeURIComponent(id)+"/update-plan");}catch(e){$("planBody").innerHTML='<p class="muted">Couldn\'t build the plan.</p>';return;}
+  if(p.ok===false){$("planBody").innerHTML=`<p class="muted">${esc(p.error||"error")}</p>`;return;}
+  $("pTitle").textContent="Safe update — "+pretty(p.project||"");
+  let h='<p class="muted" style="margin:0 0 12px">Run these in your server shell. Your files and photos are never touched — only the app and its database.</p>';
+  h+=`<div style="font-weight:600;margin:10px 0 6px">1 · Back up the database${p.dumps.length>1?"s":""} first</div>`;
+  h+=p.dumps.length?cmdBlock("mkdir -p "+(p.backup_dir||"~/helm-backups"))+p.dumps.map(d=>`<div class="label" style="margin-top:8px">${esc(d.container)}</div>`+cmdBlock(d.cmd)).join(""):'<div class="note">No database in this stack — nothing to dump.</div>';
+  h+='<div style="font-weight:600;margin:16px 0 6px">2 · Pull the new image(s) &amp; restart</div>'+cmdBlock(p.update_cmd);
+  if(!p.workdir)h+='<div class="note" style="margin-top:6px">No compose folder label found — run step 2 from this app\'s compose folder.</div>';
+  h+='<div style="font-weight:600;margin:16px 0 6px">3 · If the new version misbehaves</div><div class="note">Pin the old image (below) in the compose file and re-run step 2. Your data is unaffected.</div>';
+  h+=`<details style="margin-top:12px;font-size:12.5px"><summary class="muted" style="cursor:pointer">Current images (${p.current.length}) — for rollback</summary>${p.current.map(c=>`<div class="num muted" style="margin-top:4px">${esc(c.container)}: ${esc(c.image)}</div>`).join("")}</details>`;
+  $("planBody").innerHTML=h;}
+function copyText(t){if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t);else{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(e){}ta.remove();}toast("Copied");}
+
+/* ================================================================ files == */
+let fRoots=[],fDemo=true,fCwd=null,fEntries=[],fCrumbs=[];
+async function loadFiles(){try{const r=await jget("/api/files/roots");fRoots=r.roots||[];fDemo=!!r.demo;}catch(e){if(authFail(e))return;fDemo=true;fRoots=[];}
+  $("ftag").textContent=fDemo?"· set FILE_ROOTS to browse folders":"";
+  if(fDemo){$("froots").innerHTML="";$("crumb").innerHTML='<span class="muted">No folders configured</span>';$("filelist").innerHTML="";return;}
+  if(!fCwd&&fRoots[0])fCwd=fRoots[0].path;renderRoots();await fList();}
+const activeRoot=()=>fRoots.find(r=>fCwd===r.path||fCwd.startsWith(r.path+"/"));
+function renderRoots(){const ar=activeRoot();$("froots").innerHTML=fRoots.map((r,i)=>`<button class="btn${ar&&ar.path===r.path?" primary":""}" data-act="froot" data-i="${i}">${esc(r.name)}</button>`).join("");}
+async function fList(){let d;try{d=await jget("/api/files/list?path="+encodeURIComponent(fCwd));}catch(e){if(!authFail(e))toast("⚠ Couldn't list folder");return;}
+  if(d.ok===false){toast("⚠ "+(d.error||"error"));return;}fEntries=d.entries||[];fCwd=d.path||fCwd;renderCrumb();renderFiles();}
+function renderCrumb(){const root=activeRoot();fCrumbs=[];let h="";
+  if(root){const rel=fCwd.slice(root.path.length).split("/").filter(Boolean);let acc=root.path;fCrumbs.push(acc);
+    h=`<button class="linkbtn" data-act="fgo" data-i="0">${esc(root.name)}</button>`;rel.forEach((s,i)=>{acc+="/"+s;fCrumbs.push(acc);h+=`<span class="muted" aria-hidden="true">/</span><button class="linkbtn" data-act="fgo" data-i="${i+1}">${esc(s)}</button>`;});}
+  $("crumb").innerHTML=h;}
+function renderFiles(){const root=activeRoot();let h=`<div class="trow head frow"><span>Name</span><span>Size</span><span>Modified</span><span></span></div>`;
+  if(root&&fCwd!==root.path)h+=`<div class="trow frow"><button class="linkbtn row" data-act="fup" style="gap:10px">${IC.up}<span>Up one level</span></button><span></span><span></span><span></span></div>`;
+  h+=fEntries.map((e,i)=>`<div class="trow frow"><span class="row" style="gap:10px;min-width:0">${e.is_dir?IC.folder:IC.file}${e.is_dir?`<button class="linkbtn" data-act="fenter" data-i="${i}">${esc(e.name)}</button>`:`<span class="ell">${esc(e.name)}</span>`}</span>
+    <span class="num muted" style="font-size:12.5px">${e.is_dir?"—":bytes(e.size)}</span><span class="muted" style="font-size:12.5px">${e.is_dir?"Folder":new Date(e.mtime*1000).toLocaleDateString()}</span>
+    <span class="row" style="gap:4px;justify-content:flex-end"><button class="btn ghost sm" data-act="frename" data-i="${i}">Rename</button><button class="btn ghost sm" data-act="fmove" data-i="${i}">Move</button><button class="btn ghost sm danger" data-act="fdelete" data-i="${i}" aria-label="Delete ${esc(e.name)}">${IC.trash}</button></span></div>`).join("");
+  if(!fEntries.length)h+='<div class="trow frow muted"><span>Empty folder</span></div>';
+  $("filelist").innerHTML=h;}
+async function fOp(path,body,msg){try{const r=await jpost(path,body);if(r.ok===false)toast("⚠ "+r.error);else{toast(msg);fList();}}catch(e){authFail(e);}}
+$("mkdirBtn").onclick=()=>{if(fDemo){toast("Set FILE_ROOTS to enable file actions");return;}const n=prompt("New folder name:");if(n)fOp("/api/files/mkdir",{path:fCwd,name:n},"Folder created");};
+$("frefresh").onclick=()=>fDemo?loadFiles():fList();
+
+/* ======================================================== assistant chat == */
+function aiOn(){return S.ai!==null?S.ai:store.get("helm_ai",S.me?S.me.assistant_default:true);}
+function aiName(){return (S.me&&S.me.assistant&&S.me.assistant.name)||"Cubert";}
+function renderAiChrome(){
+  const on=aiOn();$("aiToggle").setAttribute("aria-pressed",on?"true":"false");
+  $("askbar").hidden=!on||S.phase==="chat";
+  $("askInput").placeholder=`Ask ${aiName()} about your server — “what’s using the most CPU?”`;
+  $("askHint").textContent=S.msgs.length?"Continues your chat":(S.me&&S.me.assistant&&S.me.assistant.connected?S.me.assistant.model:"Local · preview");
+  $("viewpill").hidden=!(on&&S.msgs.length&&S.phase!=="leaving");
+  $("pillDash").setAttribute("aria-pressed",S.phase!=="chat"?"true":"false");$("pillChat").setAttribute("aria-pressed",S.phase==="chat"?"true":"false");
+  $("composer").hidden=S.phase!=="chat";$("composer").classList.toggle("settled",S.phase==="chat");
+  document.body.classList.toggle("chatting",S.phase==="chat");
+}
+$("aiToggle").onclick=()=>{S.ai=!aiOn();store.set("helm_ai",S.ai);if(!S.ai&&S.phase==="chat")goDash();renderAiChrome();};
+function renderMsgs(){
+  $("msgs").innerHTML=S.msgs.map((m,i)=>m.role==="user"?`<div class="msg-user rise">${esc(m.content)}</div>`:
+    `<div class="msg-ai rise"><span class="ai-av" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"/></svg></span>
+     <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;margin-bottom:4px">${esc(aiName())}</div>
+     ${m.thinking?`<div class="dot3" role="status" aria-label="${esc(aiName())} is thinking" style="padding:6px 0"><span></span><span></span><span></span></div>`:
+     `<div class="body" id="m${i}">${esc(m.shown!=null?m.content.slice(0,m.shown):m.content)}</div><div class="label" style="margin-top:8px">${m.preview?"Preview reply · no local model connected yet":esc((S.me&&S.me.assistant&&S.me.assistant.model)||"")}</div>`}</div></div>`).join("");
+}
+function persistChat(){store.set("helm_chat",S.msgs.filter(m=>!m.thinking).map(m=>({role:m.role,content:m.content,preview:m.preview})).slice(-40));}
+async function ask(text){
+  S.msgs.push({role:"user",content:text});const ai={role:"assistant",content:"",thinking:true};S.msgs.push(ai);renderMsgs();renderAiChrome();scrollChat();
+  let reply="",preview=true;
+  try{const r=await jpost("/api/assistant",{messages:S.msgs.filter(m=>!m.thinking&&m.content).map(m=>({role:m.role,content:m.content}))});
+    reply=r.reply||("⚠ "+(r.error||"No reply"));preview=!!r.preview;}catch(e){if(authFail(e))return;reply="⚠ Couldn't reach Helm.";}
+  ai.thinking=false;ai.content=reply;ai.preview=preview;ai.shown=0;renderMsgs();
+  const idx=S.msgs.indexOf(ai),el=()=>$("m"+idx);
+  const step=Math.max(2,Math.round(reply.length/220));
+  const iv=setInterval(()=>{ai.shown=Math.min(reply.length,ai.shown+step);const e=el();if(e)e.textContent=reply.slice(0,ai.shown);scrollChat(true);
+    if(ai.shown>=reply.length){clearInterval(iv);delete ai.shown;persistChat();}},16);
+}
+function scrollChat(soft){if(S.phase!=="chat")return;const nearBottom=window.innerHeight+window.scrollY>=document.body.scrollHeight-160;if(!soft||nearBottom)window.scrollTo({top:document.body.scrollHeight,behavior:soft?"auto":"smooth"});}
+function submitAsk(){
+  const text=$("askInput").value.trim();if(!text||S.phase!=="dash")return;
+  const bar=$("askbar"),r=bar.getBoundingClientRect(),comp=$("composer"),ci=$("composerInput");
+  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  S.phase="leaving";ci.value=text;
+  comp.classList.remove("settled");comp.hidden=false;
+  Object.assign(comp.style,{top:r.top+"px",left:r.left+"px",width:r.width+"px",transition:"none",bottom:"auto",transform:"none"});
+  bar.style.visibility="hidden";$("stage").classList.remove("in");$("stage").classList.add("out");renderAiChrome();comp.hidden=false;
+  const fw=Math.min(760,window.innerWidth-32),ease="cubic-bezier(.2,.8,.2,1)";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    Object.assign(comp.style,{transition:reduce?"none":`top .7s ${ease}, left .7s ${ease}, width .7s ${ease}`,
+      top:(window.innerHeight-24-comp.offsetHeight)+"px",left:(window.innerWidth-fw)/2+"px",width:fw+"px"});}));
+  setTimeout(()=>{
+    comp.removeAttribute("style");S.phase="chat";bar.style.visibility="";$("askInput").value="";ci.value="";
+    $("stage").hidden=true;$("chat").hidden=false;window.scrollTo(0,0);renderAiChrome();renderMsgs();ci.focus();ask(text);
+  },reduce?50:760);
+}
+function goDash(){S.phase="dash";$("chat").hidden=true;const st=$("stage");st.hidden=false;st.classList.remove("out");st.classList.add("in");renderAiChrome();window.scrollTo(0,0);}
+function goChat(){if(!S.msgs.length)return;S.phase="chat";$("stage").hidden=true;$("chat").hidden=false;renderMsgs();renderAiChrome();scrollChat();$("composerInput").focus();}
+$("askBtn").onclick=submitAsk;$("askInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing)submitAsk();});
+function sendFollowUp(){const v=$("composerInput").value.trim();if(!v||S.phase!=="chat")return;$("composerInput").value="";ask(v);}
+$("composerBtn").onclick=sendFollowUp;$("composerInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing)sendFollowUp();});
+$("pillDash").onclick=goDash;$("pillChat").onclick=goChat;
+$("newChatBtn").onclick=()=>{S.msgs=[];persistChat();goDash();$("askInput").focus();};
+
+/* ======================================================= event delegation == */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,ni=b.dataset.ni!=null?+b.dataset.ni:null;
+  switch(a){
+    case "detail":openDetail(b.dataset.name);break;
+    case "expand":{const n=S.board[ni];const key=n.project||n.name;S.open=S.open===key?null:key;renderUnits();break;}
+    case "stackRestart":stackRestart(unitOf(S.board[ni],ni));break;
+    case "rename":{const n=prompt("Rename group:",S.board[ni].name);if(n&&n.trim()){S.board[ni].name=n.trim();saveLayout();renderUnits();}break;}
+    case "ungroup":{const g=S.board[ni];S.board.splice(ni,1,...g.ids.map(id=>({type:"item",id})));S.open=null;saveLayout();renderUnits();toast("Ungrouped "+g.name);break;}
+    case "restart":case "start":case "pause":case "unpause":doAction(b.dataset.id,a);break;
+    case "logs":showLogs(b.dataset.id);break;
+    case "plan":showPlan(b.dataset.id);break;
+    case "copy":copyText($(b.dataset.target).textContent);break;
+    case "backup":showBackupCmd();break;
+    case "unmute":alertPost("/api/alerts/mute",{muted:false});break;
+    case "alertAction":runAlertAction(b.dataset.aid);break;
+    case "alertMenu":S.alertMenu=S.alertMenu===b.dataset.aid?null:b.dataset.aid;renderAlerts();break;
+    case "dismiss":alertPost(`/api/alerts/${encodeURIComponent(b.dataset.aid)}/dismiss`);toast("Dismissed — it'll come back if it gets worse");break;
+    case "snooze":alertPost(`/api/alerts/${encodeURIComponent(b.dataset.aid)}/snooze`,{mode:b.dataset.mode});toast("Silenced");break;
+    case "restore":alertPost(`/api/alerts/${encodeURIComponent(b.dataset.aid)}/restore`);break;
+    case "froot":fCwd=fRoots[+b.dataset.i].path;renderRoots();fList();break;
+    case "fgo":fCwd=fCrumbs[+b.dataset.i];fList();break;
+    case "fup":{const r=activeRoot();if(r){fCwd=fCwd.split("/").slice(0,-1).join("/")||r.path;if(!fCwd.startsWith(r.path))fCwd=r.path;fList();}break;}
+    case "fenter":fCwd=fEntries[+b.dataset.i].path;fList();break;
+    case "frename":{const en=fEntries[+b.dataset.i];const n=prompt(`Rename “${en.name}” to:`,en.name);if(n&&n!==en.name)fOp("/api/files/rename",{path:en.path,newname:n},"Renamed");break;}
+    case "fmove":{const en=fEntries[+b.dataset.i];const d=prompt(`Move “${en.name}” into folder (full path):`,activeRoot()?activeRoot().path:"");if(d)fOp("/api/files/move",{src:en.path,dest:d},"Moved");break;}
+    case "fdelete":{const en=fEntries[+b.dataset.i];if(confirm(`Delete “${en.name}”? This cannot be undone.`))fOp("/api/files/delete",{path:en.path},"Deleted");break;}
+  }
+});
+
+/* ================================================================= boot == */
+let timers=[];
+async function boot(){
+  let me;try{me=await jget("/api/me");}catch(e){renderLive(null,true);setTimeout(boot,5000);return;}
+  if(me.auth_required&&!me.authed){showLogin(true);return;}
+  S.me=me;showLogin(false);$("logoutBtn").hidden=!me.auth_required;
+  await loadLayout();initPanelDrag();renderAiChrome();
+  await Promise.all([loadSystem(),loadContainers(),loadStorage(),loadBackups(),loadNet(),loadAlerts(),loadFiles()]);
+  renderSystem();
+  timers.forEach(clearInterval);
+  timers=[setInterval(()=>{if(!document.hidden){loadContainers();loadSystem();}},5000),
+    setInterval(()=>{if(!document.hidden)loadNet();},10000),
+    setInterval(()=>{if(!document.hidden)loadAlerts();},30000),
+    setInterval(()=>{if(!document.hidden)loadStorage();},60000),
+    setInterval(()=>{if(!document.hidden)loadBackups();},300000)];
+}
+boot();
+</script>
+</body>
+</html>

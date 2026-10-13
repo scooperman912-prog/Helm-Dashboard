@@ -1,0 +1,14 @@
+# secrets & machine-specific config — never commit
+.env
+docker-compose.override.yml
+.session_secret
+data/
+app/data/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# os
+.DS_Store
