@@ -175,6 +175,7 @@ body.chatting .toast{bottom:96px}
 .inp:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
 .inp.sm{padding:6px 9px;font-size:13px}
 .chk{width:18px;height:18px;accent-color:var(--ink);flex:none;cursor:pointer}
+.wcard .wrow{user-select:none}.wcard .wrow input.inp{user-select:text}
 .result{font-size:12.5px}.result.ok{color:var(--ok)}.result.bad{color:var(--bad)}
 .wfoot{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 20px}
 .wfoot>div{max-width:720px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -822,6 +823,8 @@ function wDraft(){
     curpw:"",newpw:""};
 }
 function wField(label,k,opts={}){const v=W.d[k]??"";return `<div class="field"><label for="wf-${k}">${esc(label)}</label><input class="inp" id="wf-${k}" data-wk="${k}" value="${esc(v)}" ${opts.type?`type="${opts.type}"`:""} placeholder="${esc(opts.ph||"")}" autocomplete="off" spellcheck="false"></div>`;}
+function wSelHead(list){const xs=W.d[list],n=xs.filter(x=>x.on).length,all=xs.length&&n===xs.length;
+  return xs.length>1?`<div class="between" style="padding-bottom:4px"><span class="muted" style="font-size:12.5px">${n} of ${xs.length} selected · shift-click to select a range</span><button class="btn sm" data-wact="selAll" data-list="${list}">${all?"Select none":"Select all"}</button></div>`:"";}
 function wResult(k){const r=W.results[k];return r?`<span class="result ${r.ok?"ok":"bad"}" role="status">${r.ok?"✓ ":"✕ "}${esc(r.message)}</span>`:"";}
 function wTile(title,on,key,found,body,desc){return `<div class="card wcard"><div class="row" style="gap:12px">
   <input type="checkbox" class="chk" id="wt-${key}" data-wtoggle="${key}" ${on?"checked":""}><label for="wt-${key}" style="flex:1;cursor:pointer"><div style="font-weight:600">${title}</div><div class="muted" style="font-size:12.5px">${desc}</div></label>${found}</div>${on?body:""}</div>`;}
@@ -841,13 +844,13 @@ function renderWizard(){
       <div id="wErr" class="result bad" role="alert"></div></div>`;break;
     case "drives":
       h+=`<div><h1>Which drives should Helm watch?</h1><p class="lead">These are the drives Helm found. It warns you in <i>Needs attention</i> when one passes 80%.</p></div>
-      <div class="card wcard">${d.drives.length?d.drives.map((x,i)=>`<div class="wrow"><input type="checkbox" class="chk" aria-label="Show ${esc(x.shown)}" data-wlist="drives" data-i="${i}" ${x.on?"checked":""}>
+      <div class="card wcard">${wSelHead("drives")}${d.drives.length?d.drives.map((x,i)=>`<div class="wrow"><input type="checkbox" class="chk" aria-label="Show ${esc(x.shown)}" data-wlist="drives" data-i="${i}" ${x.on?"checked":""}>
         <input class="inp sm" style="max-width:180px" aria-label="Name for ${esc(x.shown)}" data-wname="drives" data-i="${i}" value="${esc(x.name)}">
         <span class="num muted ell" style="flex:1;font-size:12.5px">${esc(x.shown)}</span><span class="num muted" style="font-size:12px;white-space:nowrap">${x.total?gbs(x.total)+" · "+x.pct+"%":""}</span></div>`).join(""):'<p class="muted">No drives detected — Helm will show the system drive.</p>'}</div>`;break;
     case "files":{
       const ro=d.folders.filter(f=>f.on&&f.writable===false);
       h+=`<div><h1>Folders for the file manager</h1><p class="lead">Pick the folders you want to browse from Helm. By default Helm can only <b>look</b> — it can't change anything on your server until you allow it.</p></div>
-      <div class="card wcard">${d.folders.map((x,i)=>`<div class="wrow"><input type="checkbox" class="chk" aria-label="Use ${esc(x.shown)}" data-wlist="folders" data-i="${i}" ${x.on?"checked":""}>
+      <div class="card wcard">${wSelHead("folders")}${d.folders.map((x,i)=>`<div class="wrow"><input type="checkbox" class="chk" aria-label="Use ${esc(x.shown)}" data-wlist="folders" data-i="${i}" ${x.on?"checked":""}>
         <input class="inp sm" style="max-width:160px" aria-label="Name for ${esc(x.shown)}" data-wname="folders" data-i="${i}" value="${esc(x.name)}">
         <span class="num muted ell" style="flex:1;font-size:12.5px">${esc(x.shown)}</span><span class="${x.writable?"found":"notfound"}">${x.writable?"editable":"view only"}</span></div>`).join("")}
         <div class="wrow"><input class="inp sm num" placeholder="/another/folder" aria-label="Add a folder by path" data-wk="newFolder" value="${esc(d.newFolder)}"><button class="btn sm" data-wact="addFolder">Add</button></div></div>
@@ -945,14 +948,20 @@ $("setup").addEventListener("input",e=>{const t=e.target;
   if(t.dataset.wname){W.d[t.dataset.wname][+t.dataset.i].name=t.value;}
 });
 $("setup").addEventListener("change",e=>{const t=e.target;
-  if(t.dataset.wlist){W.d[t.dataset.wlist][+t.dataset.i].on=t.checked;if(t.dataset.wlist==="folders")renderWizard();}
   if(t.dataset.wtoggle){const map={wud:"wud_on",ag:"ag_on",npm:"npm_on",bk:"bk_on",ntfy:"ntfy_on",ai:"ai_on"};W.d[map[t.dataset.wtoggle]]=t.checked;
     if(t.checked){if(t.dataset.wtoggle==="wud"&&!W.d.wud_url)W.d.wud_url="http://host.docker.internal:3000";if(t.dataset.wtoggle==="ag"&&!W.d.adguard_url)W.d.adguard_url="http://host.docker.internal:80";}
     renderWizard();}
   if(t.dataset.wk==="ntfy_url")renderWizard();
 });
 $("setup").addEventListener("keydown",e=>{if(e.key==="Enter"&&W.step==="account"&&e.target.tagName==="INPUT")wCreate();});
-$("setup").addEventListener("click",async e=>{const b=e.target.closest("[data-wgo],[data-wact],[data-wtest],[data-wclose]");if(!b)return;
+$("setup").addEventListener("click",async e=>{
+  const cb=e.target.closest("[data-wlist]");
+  if(cb){const list=cb.dataset.wlist,i=+cb.dataset.i,v=cb.checked;
+    if(e.shiftKey&&W.last&&W.last.list===list){const a=Math.min(W.last.i,i),z=Math.max(W.last.i,i);for(let k=a;k<=z;k++)W.d[list][k].on=v;}
+    else W.d[list][i].on=v;
+    W.last={list,i};const y=$("setup").scrollTop;renderWizard();$("setup").scrollTop=y;
+    const again=$("wz").querySelector(`[data-wlist="${list}"][data-i="${i}"]`);if(again)again.focus();return;}
+  const b=e.target.closest("[data-wgo],[data-wact],[data-wtest],[data-wclose]");if(!b)return;
   if(b.hasAttribute("data-wclose")){closeWizard();return;}
   if(b.dataset.wgo){if(W.mode==="settings"||wSteps().findIndex(s=>s[0]===b.dataset.wgo)<wSteps().findIndex(s=>s[0]===W.step)){W.step=b.dataset.wgo;W.results={};renderWizard();}return;}
   if(b.dataset.wtest){wTest(b.dataset.wtest);return;}
@@ -962,6 +971,7 @@ $("setup").addEventListener("click",async e=>{const b=e.target.closest("[data-wg
     case "finish":wFinish();break;
     case "skipAll":if(confirm("Skip setup? Helm will run with defaults — you can do this later from the gear icon.")){await fetch("/api/settings",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({settings:{setup_done:true}})});closeWizard();boot();}break;
     case "save":if(await wSave("all")){toast("Settings saved");closeWizard();const me=await jget("/api/me");S.me=me;renderAiChrome();loadStorage();loadFiles();loadNet();loadBackups();loadAlerts();}else toast("⚠ Couldn't save");break;
+    case "selAll":{const xs=W.d[b.dataset.list],all=xs.every(x=>x.on);xs.forEach(x=>x.on=!all);W.last=null;const y=$("setup").scrollTop;renderWizard();$("setup").scrollTop=y;break;}
     case "genTopic":{const r=await jget("/api/setup/ntfy-topic");W.d.ntfy_url=r.url;W.d.ntfy_on=true;renderWizard();break;}
     case "addFolder":{const p=(W.d.newFolder||"").trim();if(!p)break;const root=(W.det&&W.det.host_root)||"/host/root";const full=p.startsWith(root)?p:(root.replace(/\/$/,"")+(p.startsWith("/")?p:"/"+p));
       W.d.folders.push({path:full,name:pretty(p.split("/").filter(Boolean).pop()||p),on:true,shown:p,writable:false});W.d.newFolder="";renderWizard();break;}
