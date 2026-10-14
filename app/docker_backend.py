@@ -19,8 +19,8 @@ import urllib.request
 import concurrent.futures
 from collections import deque
 
-WUD_URL = os.environ.get("WUD_URL")  # e.g. http://host.docker.internal:3000
-BACKUP_DIR = os.environ.get("BACKUP_DIR", "~/helm-backups")
+import settings
+
 SAMPLE_SECONDS = int(os.environ.get("SAMPLE_SECONDS", "10"))
 HISTORY_POINTS = 24 * 3600 // max(SAMPLE_SECONDS, 10)
 
@@ -272,11 +272,15 @@ def find(cid):
 
 
 # ---------------------------------------------------------------------- WUD --
+def _wud_url():
+    return (settings.get("wud_url") or "").rstrip("/")
+
+
 def _wud_get(path):
-    if not WUD_URL:
+    if not _wud_url():
         return None
     try:
-        req = urllib.request.Request(WUD_URL.rstrip("/") + path, headers={"Accept": "application/json"})
+        req = urllib.request.Request(_wud_url() + path, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=4) as r:
             return json.loads(r.read().decode())
     except Exception:
@@ -284,11 +288,11 @@ def _wud_get(path):
 
 
 def _wud_post(path, payload):
-    if not WUD_URL:
+    if not _wud_url():
         return None
     try:
         body = json.dumps(payload or {}).encode()
-        req = urllib.request.Request(WUD_URL.rstrip("/") + path, data=body,
+        req = urllib.request.Request(_wud_url() + path, data=body,
                                      headers={"Content-Type": "application/json"}, method="POST")
         with urllib.request.urlopen(req, timeout=15) as r:
             return r.status
@@ -320,7 +324,7 @@ def get_updates():
 def _dump_cmd(name, img, envnames):
     """DB-dump command that references in-container env vars (no secrets printed)."""
     img = img or ""
-    out = " > " + BACKUP_DIR + "/" + name + "_$(date +%F).sql"
+    out = " > " + settings.get("backup_dir") + "/" + name + "_$(date +%F).sql"
     if "mariadb" in img or "mysql" in img:
         pw = "MARIADB_ROOT_PASSWORD" if "MARIADB_ROOT_PASSWORD" in envnames else "MYSQL_ROOT_PASSWORD"
         return "docker exec " + name + " sh -c 'exec mysqldump --all-databases -uroot -p\"$" + pw + "\"'" + out
@@ -352,14 +356,14 @@ def update_plan(cid):
             dumps.append({"container": c.name, "cmd": cmd})
         current.append({"container": c.name, "image": cfg.get("Image")})
     update_cmd = (("cd " + workdir + " && ") if workdir else "") + "docker compose pull && docker compose up -d"
-    return {"project": project or target.name, "workdir": workdir, "backup_dir": BACKUP_DIR,
+    return {"project": project or target.name, "workdir": workdir, "backup_dir": settings.get("backup_dir"),
             "dumps": dumps, "update_cmd": update_cmd, "current": current}
 
 
 def update_container(cid):
     cl = _client()
     name = cl.containers.get(cid).name
-    if WUD_URL:
+    if _wud_url():
         for path in (f"/api/containers/{name}/update", "/api/triggers/docker/update"):
             if _wud_post(path, {"container": name}) is not None:
                 return {"ok": True, "via": "wud", "name": name}

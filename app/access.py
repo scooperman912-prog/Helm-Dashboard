@@ -20,7 +20,13 @@ import glob
 import time
 from datetime import datetime
 
-NPM_DIR = os.environ.get("NPM_DATA_DIR", "").rstrip("/")
+import settings
+
+
+def _npm_dir():
+    return (settings.get("npm_data_dir") or "").rstrip("/")
+
+
 _TTL = 30
 _cache = {"ts": 0, "hosts": []}
 
@@ -30,7 +36,7 @@ _UA = re.compile(r'"([^"]*)"\s+"[^"]*"\s*$')
 
 def _service_urls():
     out = {}
-    for part in os.environ.get("SERVICE_URLS", "").split(","):
+    for part in (settings.get("service_urls") or "").split(","):
         if "=" in part:
             k, v = part.split("=", 1)
             out[k.strip().lower()] = v.strip()
@@ -61,12 +67,13 @@ def _client_label(ua):
 
 
 def _proxy_hosts():
-    if not NPM_DIR or not os.path.isdir(NPM_DIR):
+    npm = _npm_dir()
+    if not npm or not os.path.isdir(npm):
         return []
     if time.time() - _cache["ts"] < _TTL:
         return _cache["hosts"]
     hosts = []
-    for conf in glob.glob(os.path.join(NPM_DIR, "nginx/proxy_host/*.conf")):
+    for conf in glob.glob(os.path.join(npm, "nginx/proxy_host/*.conf")):
         hid = os.path.splitext(os.path.basename(conf))[0]
         try:
             txt = open(conf).read()
@@ -78,7 +85,7 @@ def _proxy_hosts():
         if not server or not names:
             continue
         domains = names.group(1).split()
-        last = _tail(os.path.join(NPM_DIR, f"logs/proxy-host-{hid}_access.log"))
+        last = _tail(os.path.join(npm, f"logs/proxy-host-{hid}_access.log"))
         ts = None
         m = _TS.search(last)
         if m:
@@ -131,4 +138,4 @@ def enrich(containers):
 
 
 def tracking_enabled():
-    return bool(NPM_DIR and os.path.isdir(NPM_DIR))
+    return bool(_npm_dir() and os.path.isdir(_npm_dir()))

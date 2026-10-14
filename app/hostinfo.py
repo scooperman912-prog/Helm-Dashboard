@@ -21,12 +21,23 @@ try:
 except Exception:  # pragma: no cover
     psutil = None
 
-HOST_ROOT = os.environ.get("HOST_ROOT", "/host/root")
-NET_IFACE = os.environ.get("NET_IFACE", "").strip()
-TS_SOCKET = os.environ.get("TAILSCALE_SOCKET", "/var/run/tailscale/tailscaled.sock")
-AG_URL = os.environ.get("ADGUARD_URL", "").rstrip("/")
-AG_USER = os.environ.get("ADGUARD_USER", "")
-AG_PASS = os.environ.get("ADGUARD_PASSWORD", "")
+import settings
+
+HOST_ROOT = settings.HOST_ROOT
+
+
+def ts_socket():
+    """Configured tailscaled socket, else the first standard location that exists
+    (the host's /run is visible through the read-only HOST_ROOT mount)."""
+    p = settings.get("tailscale_socket")
+    if p:
+        return p
+    for c in (os.path.join(HOST_ROOT, "run/tailscale/tailscaled.sock"),
+              os.path.join(HOST_ROOT, "var/run/tailscale/tailscaled.sock"),
+              "/var/run/tailscale/tailscaled.sock"):
+        if os.path.exists(c):
+            return c
+    return None
 
 
 # ------------------------------------------------------------------- system --
@@ -134,8 +145,9 @@ def _read_int(path):
 
 
 def _pick_iface(base):
-    if NET_IFACE:
-        return NET_IFACE
+    iface = (settings.get("net_iface") or "").strip()
+    if iface:
+        return iface
     best, best_rx = None, -1
     try:
         for name in os.listdir(base):
@@ -193,10 +205,11 @@ class _UnixHTTP(http.client.HTTPConnection):
 
 
 def tailscale():
-    if not TS_SOCKET or not os.path.exists(TS_SOCKET):
+    sock = ts_socket()
+    if not sock or not os.path.exists(sock):
         return {"enabled": False}
     try:
-        conn = _UnixHTTP(TS_SOCKET)
+        conn = _UnixHTTP(sock)
         conn.request("GET", "/localapi/v0/status", headers={"Host": "local-tailscaled.sock"})
         r = conn.getresponse()
         st = json.loads(r.read().decode())
@@ -222,21 +235,24 @@ def tailscale():
 
 
 # ----------------------------------------------------------------- adguard --
-def _ag(path):
-    req = urllib.request.Request(AG_URL + path, headers={"Accept": "application/json"})
-    if AG_USER:
-        tok = base64.b64encode(f"{AG_USER}:{AG_PASS}".encode()).decode()
+def _ag(path, url=None, user=None, pw=None):
+    url = (url if url is not None else settings.get("adguard_url") or "").rstrip("/")
+    user = user if user is not None else settings.get("adguard_user")
+    pw = pw if pw is not None else settings.get("adguard_password")
+    req = urllib.request.Request(url + path, headers={"Accept": "application/json"})
+    if user:
+        tok = base64.b64encode(f"{user}:{pw or ''}".encode()).decode()
         req.add_header("Authorization", "Basic " + tok)
     with urllib.request.urlopen(req, timeout=4) as r:
         return json.loads(r.read().decode())
 
 
-def adguard():
-    if not AG_URL:
+def adguard(url=None, user=None, pw=None):
+    if not (url or settings.get("adguard_url")):
         return {"enabled": False}
     try:
-        st = _ag("/control/status")
-        stats = _ag("/control/stats")
+        st = _ag("/control/status", url, user, pw)
+        stats = _ag("/control/stats", url, user, pw)
         q = stats.get("num_dns_queries") or 0
         b = stats.get("num_blocked_filtering") or 0
         hours = None

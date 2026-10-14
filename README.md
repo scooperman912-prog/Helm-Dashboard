@@ -24,43 +24,61 @@ Helm runs as one small container (FastAPI + a plain-JS page). It talks to Docker
   - Turn it on or off from the header.
 - Light and dark themes, a password login, and a layout that works on a phone.
 
-## Quick start
+## Install
+
+On your server (needs Docker with Compose v2):
 
 ```bash
-git clone https://github.com/scooperman912-prog/helm-dashboard.git
-cd helm-dashboard
-cp .env.example .env                                          # set JARVIS_PASSWORD at least
-cp docker-compose.override.example.yml docker-compose.override.yml   # your drives & folders
-docker compose up -d --build
-# open http://<server-ip>:8787
+curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/helm-dashboard/main/install.sh | bash
 ```
 
-`docker-compose.yml` is generic. Your machine-specific paths go in `docker-compose.override.yml` and your secrets in `.env`. Both files are git-ignored.
+The script downloads Helm to `~/helm`, starts it, and prints the address and a **one-time setup code**.
 
-## Configuration
+Open the address in your browser and the setup wizard walks you through the rest, in about two minutes:
 
-| Variable | What it does |
-|---|---|
-| `JARVIS_PASSWORD` | Requires a login. Leave unset only for a quick LAN test. |
-| `DRIVES` | `Name:/path,...`: drives to show (paths as seen inside the container). |
-| `FILE_ROOTS` | `Name:/path,...`: folders the file manager may use. Each needs a read-write volume. |
-| `WUD_URL` | What's Up Docker API, for update flags. |
-| `NTFY_URL`, `NTFY_TOKEN` | Phone pushes for new alerts. `ALERT_INTERVAL` sets how often to check (seconds, default 300). |
-| `BACKUP_STATUS`, `BACKUP_COMMAND`, `BACKUP_DIR` | Backup status file, the "Back up now" command, and the folder for Safe Update DB dumps. `BACKUP_MAX_AGE_HOURS` (default 192) sets when backups count as overdue. |
-| `NPM_DATA_DIR` | Nginx Proxy Manager's `/data`, mounted read-only. Enables **last accessed** and automatic **Open** links. |
-| `SERVICE_URLS` | `name=url,...`: links for anything NPM doesn't cover. A container label `helm.url=` also works. |
-| `TAILSCALE_SOCKET` | Path to `tailscaled.sock` (default `/var/run/tailscale/tailscaled.sock`; mount `/var/run/tailscale` read-only). |
-| `ADGUARD_URL`, `ADGUARD_USER`, `ADGUARD_PASSWORD` | AdGuard Home panel. |
-| `NET_IFACE` | Network interface for the throughput panel (auto-detected otherwise). |
-| `ASSISTANT_URL`, `ASSISTANT_MODEL`, `ASSISTANT_API_KEY`, `ASSISTANT_NAME`, `ASSISTANT_ENABLED` | Assistant settings. Without a URL it runs in preview mode. |
-| `JARVIS_COOKIE_SECURE` | Set to `1` when serving over HTTPS. |
+1. **Account.** Enter the setup code and choose a password.
+2. **Drives.** Helm lists the drives it found. Tick the ones to watch.
+3. **Folders.** Pick folders for the file manager. They're view-only until you allow changes, and Helm shows the exact snippet to do that.
+4. **Apps.** What's Up Docker, AdGuard Home, Nginx Proxy Manager, Tailscale and backups. Anything Helm finds is pre-filled; press **Test**.
+5. **Alerts.** Generate a private ntfy topic and send a test push to your phone.
+6. **Assistant.** Show or hide the ask bar, and optionally point it at a local model.
 
-The `JARVIS_` prefix is kept from Helm's original name so older installs keep working.
+You can change any of this later from the **gear** icon.
+
+- **Update:** run the same command again.
+- **Change the port:** `HELM_PORT=8788 bash install.sh`, or run the curl command with `HELM_PORT=8788` set.
+- **Uninstall:** `cd ~/helm && docker compose down -v && rm -rf ~/helm`
+
+<details><summary>Manual install</summary>
+
+```bash
+git clone https://github.com/scooperman912-prog/helm-dashboard.git ~/helm
+cd ~/helm
+docker compose up -d --build
+docker compose logs helm | grep -A2 "setup code"   # then open http://<server-ip>:8787
+```
+</details>
+
+## How setup works without editing files
+
+Helm mounts your server's `/` **read-only**. That lets it find drives, folders, the Tailscale socket and Proxy Manager's logs on its own. The socket proxy lets it spot companion apps like What's Up Docker and AdGuard.
+
+Settings are saved in Helm's data volume and take effect immediately.
+
+Two things still need a line in `docker-compose.override.yml` (git-ignored), because a container can't change its own mounts:
+
+- making file-manager folders **editable**: the wizard prints the snippet;
+- binding to a single IP.
+
+See `docker-compose.override.example.yml`.
+
+Environment variables in `.env` still work as defaults; see `.env.example`. Set `JARVIS_PASSWORD` there to use a fixed password instead of the one created in the browser.
 
 ## Security model
 
 - Helm never opens the Docker socket itself. `tecnativa/docker-socket-proxy` allows only container list, inspect, stats, logs and start/stop/restart/pause, plus info. It has no exec, image, network or volume access, and publishes no ports.
-- The host's `/` is mounted **read-only**. The only writable paths are the file-manager folders you list.
+- The host's `/` is mounted **read-only**. The only writable paths are folders you explicitly mount read-write in the override file.
+- First-run setup needs the one-time code from the container log, so someone else on your network can't claim the dashboard before you do. Passwords are stored as salted PBKDF2 hashes.
 - File operations are confined to `FILE_ROOTS`, with realpath checks: anything outside a root is refused, and roots themselves can't be deleted.
 - The app runs as a non-root user. Every data endpoint needs the login cookie when a password is set.
 - Helm is meant to stay on your LAN or tailnet. Don't expose it to the internet.
@@ -69,6 +87,7 @@ The `JARVIS_` prefix is kept from Helm's original name so older installs keep wo
 ## Layout
 
 ```
+install.sh           one-line installer / updater
 app/
   main.py            API routes + auth gate
   docker_backend.py  containers via the socket proxy, background sampler, WUD, safe updates
@@ -76,6 +95,8 @@ app/
   alerts.py          Needs-attention feed, silencing, ntfy pushes
   access.py          NPM "last accessed" + service links
   assistant.py       chat endpoint (local model or preview)
+  settings.py        browser-editable settings (settings.json, env fallback)
+  setup.py           first-run wizard: auto-detection + connection tests
   files.py           confined file operations
   layout.py, auth.py
   static/index.html  the whole UI

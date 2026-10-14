@@ -1,37 +1,14 @@
-# Copy to docker-compose.override.yml and edit. Compose merges it with
-# docker-compose.yml automatically; it's git-ignored so your paths stay private.
+# Optional. Copy to docker-compose.override.yml (git-ignored) for things the
+# setup wizard can't do from inside the container. Then: docker compose up -d
 
 services:
   helm:
-    environment:
-      # Drives to show. Paths are inside the container: your host path under /host/root.
-      DRIVES: "System:/host/root,Media:/host/root/srv/media,Backup:/mnt/backup-in-container"
-
-      # File manager: folders it may browse and edit (Name:/container/path).
-      # Each needs a matching read-write volume below.
-      FILE_ROOTS: "Server:/host/srv,Media:/host/media"
-
-      # Update detection via What's Up Docker (if you run it).
-      # WUD_URL: "http://host.docker.internal:3000"
-
-      # Backup panel: a JSON status file your backup script writes, plus the
-      # command shown under "Back up now".
-      # BACKUP_STATUS: "/host/root/home/<you>/helm-backups/status.json"
-      # BACKUP_COMMAND: "~/helm-backups/run-backup.sh"
-      # BACKUP_DIR: "~/helm-backups"          # where Safe Update writes DB dumps
-
-      # "Last accessed" + automatic links, from Nginx Proxy Manager's data folder.
-      # NPM_DATA_DIR: "/npm"
-
-      # Pick the network interface for the throughput panel (auto-detected if unset).
-      # NET_IFACE: "eno1"
-
     volumes:
-      - /srv:/host/srv:rw
-      - /media:/host/media:rw
-      # Keep sensitive app folders read-only even inside a writable root:
-      # - /srv/nextcloud/app:/host/srv/nextcloud/app:ro
-      # Tailscale panel (Tailscale installed on the host):
-      # - /var/run/tailscale:/var/run/tailscale:ro
-      # Nginx Proxy Manager data (for last-accessed + links):
-      # - /path/to/nginx-proxy-manager/data:/npm:ro
+      # Let the file manager change files in a folder (Settings → Folders shows
+      # this snippet for the folders you picked). Host path : /host/root + same path
+      - /srv:/host/root/srv:rw
+      # - /media:/host/root/media:rw
+
+    # Only listen on one address, e.g. your Tailscale IP:
+    # ports: !override
+    #   - "100.x.y.z:8787:8000"

@@ -19,8 +19,8 @@ import threading
 import urllib.request
 
 _PATH = os.path.join(os.environ.get("JARVIS_DATA", "/data"), "alerts.json")
-NTFY_URL = os.environ.get("NTFY_URL", "").strip()
-NTFY_TOKEN = os.environ.get("NTFY_TOKEN", "").strip()
+import settings
+
 INTERVAL = int(os.environ.get("ALERT_INTERVAL", "300"))
 BACKUP_MAX_AGE_H = float(os.environ.get("BACKUP_MAX_AGE_HOURS", "192"))
 
@@ -156,7 +156,7 @@ def view():
             silenced.append({"id": aid, "title": z.get("title") or aid, "how": "never alert on this"})
     order = {"crit": 0, "warn": 1, "info": 2, "muted": 3}
     active.sort(key=lambda a: order.get(a["level"], 9))
-    return {"alerts": active, "silenced": silenced, "muted": s["muted"], "push": bool(NTFY_URL)}
+    return {"alerts": active, "silenced": silenced, "muted": s["muted"], "push": bool(settings.get("ntfy_url"))}
 
 
 # ------------------------------------------------------------------ actions --
@@ -212,14 +212,16 @@ def set_muted(v):
 
 
 # ----------------------------------------------------------------- notifier --
-def _push(a):
+def _push(a, url=None, token=None):
+    url = url or settings.get("ntfy_url")
+    token = token if token is not None else settings.get("ntfy_token")
     body = a["detail"].encode()
-    req = urllib.request.Request(NTFY_URL, data=body, method="POST")
+    req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Title", ("Helm: " + a["title"]).encode("ascii", "replace").decode())
     req.add_header("Priority", "high" if a["level"] == "crit" else "default")
     req.add_header("Tags", {"crit": "rotating_light", "warn": "warning"}.get(a["level"], "information_source"))
-    if NTFY_TOKEN:
-        req.add_header("Authorization", "Bearer " + NTFY_TOKEN)
+    if token:
+        req.add_header("Authorization", "Bearer " + token)
     urllib.request.urlopen(req, timeout=8).read()
 
 
@@ -231,7 +233,7 @@ def check_and_notify():
         for aid in list(s["notified"]):
             if aid not in active_ids:
                 s["notified"].pop(aid)  # resolved — notify again if it comes back
-        to_push = [] if (s["muted"] or not NTFY_URL) else \
+        to_push = [] if (s["muted"] or not settings.get("ntfy_url")) else \
             [a for a in v["alerts"] if s["notified"].get(a["id"]) != a["fp"]]
         for a in v["alerts"]:
             s["notified"][a["id"]] = a["fp"]

@@ -1,35 +1,28 @@
 """File-manager backend. All operations are confined to the roots declared in
 the FILE_ROOTS env var, with realpath-based path-traversal protection.
 
-FILE_ROOTS format:  "Display Name:/abs/path,Other:/abs/path2"
-If unset, falls back to a demo root so the UI still works.
+Roots come from Settings (or the FILE_ROOTS env var: "Name:/path,Other:/path2").
+Folders under a read-only mount can be browsed but not changed.
 """
 import os
 import shutil
 
+import settings
+
 
 def _parse_roots():
-    raw = os.environ.get("FILE_ROOTS", "").strip()
     roots = []
-    if not raw:
-        return roots
-    for part in raw.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if ":" in part:
-            name, p = part.split(":", 1)
-        else:
-            p = part
-            name = os.path.basename(p.rstrip("/")) or p
-        rp = os.path.realpath(p.strip())
-        if os.path.isdir(rp):
-            roots.append({"name": name.strip(), "path": rp})
+    for r in settings.get("file_roots") or []:
+        rp = os.path.realpath((r.get("path") or "").strip())
+        if rp and os.path.isdir(rp):
+            roots.append({"name": (r.get("name") or os.path.basename(rp) or rp).strip(), "path": rp,
+                          "writable": os.access(rp, os.W_OK)})
     return roots
 
 
 def roots():
-    return [{"name": r["name"], "path": r["path"]} for r in _parse_roots()]
+    return [{"name": r["name"], "path": r["path"], "writable": r["writable"],
+             "shown": settings.show_path(r["path"])} for r in _parse_roots()]
 
 
 def has_roots():

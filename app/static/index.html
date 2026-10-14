@@ -156,6 +156,30 @@ body.chatting .toast{bottom:96px}
 @media (prefers-reduced-motion:reduce){.stage,.stage.in,.rise,.pillin,.fadein,.dialog{animation:none!important;transition:none!important}}
 @media (max-width:640px){body{padding:20px 16px 56px}.facts{grid-template-columns:1fr}.askbar .hint{display:none}}
 
+/* setup wizard */
+#setup{position:fixed;inset:0;z-index:70;background:var(--bg);overflow:auto;display:none}
+#setup.show{display:block}
+.wz{max-width:720px;margin:0 auto;padding:40px 20px 120px;display:flex;flex-direction:column;gap:20px}
+.wz h1{font-size:26px;font-weight:600;letter-spacing:-.02em}
+.wz .lead{color:var(--muted);font-size:14.5px;line-height:1.55;margin:4px 0 0}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.steps button{font:inherit;font-size:12px;border:0;background:transparent;color:var(--muted);padding:4px 8px;border-radius:999px;cursor:pointer}
+.steps button[aria-current="step"]{background:var(--ink);color:var(--bg)}
+.steps button.done{color:var(--ink)}
+.wcard{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.wrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.wrow:first-child{border-top:0}
+.field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px}
+.field label{font-size:12px;color:var(--muted)}
+.inp{font:inherit;font-size:14px;width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.inp:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.inp.sm{padding:6px 9px;font-size:13px}
+.chk{width:18px;height:18px;accent-color:var(--ink);flex:none;cursor:pointer}
+.result{font-size:12.5px}.result.ok{color:var(--ok)}.result.bad{color:var(--bad)}
+.wfoot{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 20px}
+.wfoot>div{max-width:720px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.found{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--okbg);color:var(--ok)}
+.notfound{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
 /* login */
 #login .dialog{width:340px;text-align:center;padding:28px 24px;gap:10px;align-items:stretch}
 #login input{font:inherit;font-size:14px;width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
@@ -175,6 +199,7 @@ body.locked #app{filter:blur(6px);pointer-events:none}
         <button class="btn" id="aiToggle" aria-pressed="false" title="Show or hide the assistant" style="font-size:12.5px"><span data-icon="sparkle"></span>Assistant<span class="switch" aria-hidden="true"></span></button>
         <button class="btn ghost" id="muteBtn" aria-label="Mute all notifications" title="Mute all notifications"></button>
         <button class="btn ghost" id="themeBtn" aria-label="Toggle light / dark theme" title="Theme"><span data-icon="moon"></span></button>
+        <button class="btn ghost" id="settingsBtn" aria-label="Settings" title="Settings" hidden><span data-icon="gear"></span></button>
         <button class="btn ghost" id="logoutBtn" aria-label="Sign out" title="Sign out" hidden><span data-icon="logout"></span></button>
       </div>
     </header>
@@ -280,6 +305,7 @@ body.locked #app{filter:blur(6px);pointer-events:none}
   <div id="loginErr" style="color:var(--bad);font-size:12.5px;min-height:16px"></div>
   <label for="pw" class="sr">Password</label><input type="password" id="pw" placeholder="Password" autocomplete="current-password">
   <button class="btn primary" id="loginBtn" style="min-height:42px">Unlock</button></div></div>
+<div id="setup" role="dialog" aria-modal="true" aria-label="Helm setup"><div class="wz" id="wz"></div><div class="wfoot" id="wfoot"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -297,6 +323,7 @@ const IC={
   file:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" class="muted" style="flex:none"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
   trash:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   refresh:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>',
+  gear:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   up:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'
 };
 document.querySelectorAll("[data-icon]").forEach(el=>el.innerHTML=IC[el.dataset.icon]);
@@ -415,7 +442,7 @@ function renderStorage(){
     return `<div style="display:flex;flex-direction:column;gap:6px"><div class="between" style="align-items:baseline;gap:8px;flex-wrap:nowrap"><span style="font-size:13.5px;font-weight:500" class="ell">${esc(d.name)} <span class="num muted" style="font-weight:400;font-size:12px">${esc(d.mount)}</span></span><span class="num" style="font-size:12.5px;color:${col};white-space:nowrap">${gbs(d.used)} / ${gbs(d.total)} · ${d.pct}%</span></div><div class="track"><i class="${cls}" style="width:${d.pct}%"></i></div></div>`;}).join("")||'<div class="muted">No drives configured (set DRIVES).</div>';
   $("storeTotal").textContent=total?`${gbs(used)} of ${gbs(total)}`:"";
   const b=S.backups;let t;
-  if(!b||b.configured===false)t="Not configured — set BACKUP_STATUS to show your backup status here.";
+  if(!b||b.configured===false)t="Not set up — add it in Settings → Apps.";
   else if(!b.ok)t="No backup run recorded yet.";
   else{const fin=b.finished?new Date(b.finished):null;const dbs=Object.values(b.databases||{});const okdb=dbs.filter(x=>x.status==="ok").length;
     t=`Last run ${fin?ago(fin.getTime()/1000):"—"} · snapshot ${b.snapshot==="ok"?"OK":"failed"}`+(dbs.length?` · ${okdb}/${dbs.length} DB dumps OK`:"");}
@@ -644,8 +671,9 @@ function copyText(t){if(navigator.clipboard&&window.isSecureContext)navigator.cl
 /* ================================================================ files == */
 let fRoots=[],fDemo=true,fCwd=null,fEntries=[],fCrumbs=[];
 async function loadFiles(){try{const r=await jget("/api/files/roots");fRoots=r.roots||[];fDemo=!!r.demo;}catch(e){if(authFail(e))return;fDemo=true;fRoots=[];}
-  $("ftag").textContent=fDemo?"· set FILE_ROOTS to browse folders":"";
-  if(fDemo){$("froots").innerHTML="";$("crumb").innerHTML='<span class="muted">No folders configured</span>';$("filelist").innerHTML="";return;}
+  $("ftag").textContent="";
+  $("mkdirBtn").hidden=fDemo;
+  if(fDemo){$("froots").innerHTML="";$("crumb").innerHTML='<span class="muted">No folders chosen yet — add some in <button class="linkbtn" data-act="openSettings" data-step="files" style="display:inline;color:var(--accent)">Settings → Folders</button></span>';$("filelist").innerHTML="";return;}
   if(!fCwd&&fRoots[0])fCwd=fRoots[0].path;renderRoots();await fList();}
 const activeRoot=()=>fRoots.find(r=>fCwd===r.path||fCwd.startsWith(r.path+"/"));
 function renderRoots(){const ar=activeRoot();$("froots").innerHTML=fRoots.map((r,i)=>`<button class="btn${ar&&ar.path===r.path?" primary":""}" data-act="froot" data-i="${i}">${esc(r.name)}</button>`).join("");}
@@ -655,11 +683,12 @@ function renderCrumb(){const root=activeRoot();fCrumbs=[];let h="";
   if(root){const rel=fCwd.slice(root.path.length).split("/").filter(Boolean);let acc=root.path;fCrumbs.push(acc);
     h=`<button class="linkbtn" data-act="fgo" data-i="0">${esc(root.name)}</button>`;rel.forEach((s,i)=>{acc+="/"+s;fCrumbs.push(acc);h+=`<span class="muted" aria-hidden="true">/</span><button class="linkbtn" data-act="fgo" data-i="${i+1}">${esc(s)}</button>`;});}
   $("crumb").innerHTML=h;}
-function renderFiles(){const root=activeRoot();let h=`<div class="trow head frow"><span>Name</span><span>Size</span><span>Modified</span><span></span></div>`;
+function renderFiles(){const root=activeRoot();const ro=root&&root.writable===false;$("mkdirBtn").hidden=ro;
+  $("ftag").textContent=ro?"· read-only — make it editable in Settings → Folders":"";let h=`<div class="trow head frow"><span>Name</span><span>Size</span><span>Modified</span><span></span></div>`;
   if(root&&fCwd!==root.path)h+=`<div class="trow frow"><button class="linkbtn row" data-act="fup" style="gap:10px">${IC.up}<span>Up one level</span></button><span></span><span></span><span></span></div>`;
   h+=fEntries.map((e,i)=>`<div class="trow frow"><span class="row" style="gap:10px;min-width:0">${e.is_dir?IC.folder:IC.file}${e.is_dir?`<button class="linkbtn" data-act="fenter" data-i="${i}">${esc(e.name)}</button>`:`<span class="ell">${esc(e.name)}</span>`}</span>
     <span class="num muted" style="font-size:12.5px">${e.is_dir?"—":bytes(e.size)}</span><span class="muted" style="font-size:12.5px">${e.is_dir?"Folder":new Date(e.mtime*1000).toLocaleDateString()}</span>
-    <span class="row" style="gap:4px;justify-content:flex-end"><button class="btn ghost sm" data-act="frename" data-i="${i}">Rename</button><button class="btn ghost sm" data-act="fmove" data-i="${i}">Move</button><button class="btn ghost sm danger" data-act="fdelete" data-i="${i}" aria-label="Delete ${esc(e.name)}">${IC.trash}</button></span></div>`).join("");
+    <span class="row" style="gap:4px;justify-content:flex-end">${ro?"":`<button class="btn ghost sm" data-act="frename" data-i="${i}">Rename</button><button class="btn ghost sm" data-act="fmove" data-i="${i}">Move</button><button class="btn ghost sm danger" data-act="fdelete" data-i="${i}" aria-label="Delete ${esc(e.name)}">${IC.trash}</button>`}</span></div>`).join("");
   if(!fEntries.length)h+='<div class="trow frow muted"><span>Empty folder</span></div>';
   $("filelist").innerHTML=h;}
 async function fOp(path,body,msg){try{const r=await jpost(path,body);if(r.ok===false)toast("⚠ "+r.error);else{toast(msg);fList();}}catch(e){authFail(e);}}
@@ -730,6 +759,7 @@ document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,ni=b.dataset.ni!=null?+b.dataset.ni:null;
   switch(a){
     case "detail":openDetail(b.dataset.name);break;
+    case "openSettings":openWizard("settings",b.dataset.step);break;
     case "expand":{const n=S.board[ni];const key=n.project||n.name;S.open=S.open===key?null:key;renderUnits();break;}
     case "stackRestart":stackRestart(unitOf(S.board[ni],ni));break;
     case "rename":{const n=prompt("Rename group:",S.board[ni].name);if(n&&n.trim()){S.board[ni].name=n.trim();saveLayout();renderUnits();}break;}
@@ -755,12 +785,201 @@ document.addEventListener("click",e=>{
   }
 });
 
+/* ========================================================= setup wizard == */
+const W={mode:"setup",step:"account",det:null,cfg:null,d:null,results:{},skipped:false,busy:false};
+const STEPS=[["account","Account"],["drives","Drives"],["files","Folders"],["services","Apps"],["alerts","Alerts"],["assistant","Assistant"],["done","Finish"]];
+function wSteps(){return STEPS.filter(s=>W.mode==="setup"?(s[0]!=="account"||(S.me&&S.me.needs_password)):(s[0]!=="done"&&s[0]!=="account"));}
+async function openWizard(mode,step){
+  W.mode=mode;W.step=step||(mode==="setup"?"drives":"drives");W.results={};
+  $("setup").classList.add("show");document.body.style.overflow="hidden";
+  if(W.step!=="account"&&(!W.det||mode==="settings"))await wLoad();
+  renderWizard();
+}
+function closeWizard(){$("setup").classList.remove("show");document.body.style.overflow="";}
+async function wLoad(){
+  $("wz").innerHTML='<p class="muted">Looking around your server…</p>';$("wfoot").innerHTML="";
+  try{const [det,cfg]=await Promise.all([jget("/api/setup/detect"),jget("/api/settings")]);W.det=det;W.cfg=cfg.settings;W.envPw=cfg.env_password;}
+  catch(e){if(authFail(e)){closeWizard();return;}W.det={drives:[],folders:[],services:{},backups:[]};W.cfg={};}
+  wDraft();
+}
+function wDraft(){
+  const c=W.cfg||{},det=W.det||{},sv=det.services||{};
+  const cd=c.drives||[],cf=c.file_roots||[];
+  const drives=[];const seen=new Set();
+  cd.forEach(x=>{seen.add(x.path);const dd=(det.drives||[]).find(y=>y.path===x.path)||{};drives.push({path:x.path,name:x.name,on:true,shown:dd.shown||x.path,total:dd.total,pct:dd.pct});});
+  (det.drives||[]).forEach(x=>{if(!seen.has(x.path))drives.push({path:x.path,name:x.name,on:!cd.length&&!/^(fuse\.|nfs|cifs|smb)/.test(x.fstype||""),shown:x.shown,total:x.total,pct:x.pct});});
+  const folders=[];const fs=new Set();
+  cf.forEach(x=>{fs.add(x.path);const ff=(det.folders||[]).find(y=>y.path===x.path)||{};folders.push({path:x.path,name:x.name,on:true,shown:ff.shown||x.path,writable:ff.writable});});
+  (det.folders||[]).forEach(x=>{if(!fs.has(x.path))folders.push({path:x.path,name:x.name,on:false,shown:x.shown,writable:x.writable});});
+  const bk=(det.backups||[])[0]||{};
+  W.d={drives,folders,newFolder:"",
+    wud_on:!!(c.wud_url||sv.wud),wud_url:c.wud_url||(sv.wud&&sv.wud.url)||"",
+    ag_on:!!(c.adguard_url||sv.adguard),adguard_url:c.adguard_url||(sv.adguard&&sv.adguard.url)||"",adguard_user:c.adguard_user||"",adguard_password:"",ag_set:!!(c.adguard_password&&c.adguard_password.set),
+    npm_on:!!(c.npm_data_dir||(sv.npm&&sv.npm.path)),npm_data_dir:c.npm_data_dir||(sv.npm&&sv.npm.path)||"",
+    bk_on:!!(c.backup_status||bk.path),backup_status:c.backup_status||bk.path||"",backup_command:c.backup_command||bk.command||"~/helm-backups/run-backup.sh",
+    ntfy_on:!!c.ntfy_url,ntfy_url:c.ntfy_url||"",ntfy_token:"",
+    ai_on:c.assistant_enabled!==false,assistant_name:c.assistant_name||"Cubert",assistant_url:c.assistant_url||"",assistant_model:c.assistant_model||"",assistant_api_key:"",
+    curpw:"",newpw:""};
+}
+function wField(label,k,opts={}){const v=W.d[k]??"";return `<div class="field"><label for="wf-${k}">${esc(label)}</label><input class="inp" id="wf-${k}" data-wk="${k}" value="${esc(v)}" ${opts.type?`type="${opts.type}"`:""} placeholder="${esc(opts.ph||"")}" autocomplete="off" spellcheck="false"></div>`;}
+function wResult(k){const r=W.results[k];return r?`<span class="result ${r.ok?"ok":"bad"}" role="status">${r.ok?"✓ ":"✕ "}${esc(r.message)}</span>`:"";}
+function wTile(title,on,key,found,body,desc){return `<div class="card wcard"><div class="row" style="gap:12px">
+  <input type="checkbox" class="chk" id="wt-${key}" data-wtoggle="${key}" ${on?"checked":""}><label for="wt-${key}" style="flex:1;cursor:pointer"><div style="font-weight:600">${title}</div><div class="muted" style="font-size:12.5px">${desc}</div></label>${found}</div>${on?body:""}</div>`;}
+function renderWizard(){
+  const steps=wSteps(),idx=steps.findIndex(s=>s[0]===W.step),setup=W.mode==="setup";
+  const nav=`<nav class="steps" aria-label="Setup steps">${steps.map((s,i)=>`<button data-wgo="${s[0]}" ${s[0]===W.step?'aria-current="step"':""} class="${i<idx?"done":""}" ${setup&&i>idx?"disabled":""}>${setup?(i+1)+". ":""}${s[1]}</button>`).join("")}</nav>`;
+  const logo=`<div class="logo" aria-hidden="true">${'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>'}</div>`;
+  let h=`<div class="between">${logo}${setup?"":`<button class="btn ghost" data-wclose aria-label="Close settings">${IC.x}</button>`}</div>`+nav;
+  const d=W.d||{},sv=(W.det&&W.det.services)||{};
+  switch(W.step){
+    case "account":
+      h+=`<div><h1>Welcome to Helm</h1><p class="lead">Let's get your dashboard set up — it takes about two minutes. First, prove you own this server and pick a password.</p></div>
+      <div class="card wcard"><div class="field"><label for="wSetupCode">Setup code</label><input class="inp num" id="wSetupCode" placeholder="XXXX-XXXX" autocomplete="off" style="text-transform:uppercase;letter-spacing:.08em"></div>
+      <div class="muted" style="font-size:12.5px;line-height:1.5">The installer printed it. Lost it? On the server, run <code class="num">cd ~/helm &amp;&amp; docker compose logs helm | grep -A2 "setup code"</code></div>
+      <div class="field"><label for="wPw1">Password</label><input class="inp" type="password" id="wPw1" autocomplete="new-password" placeholder="At least 8 characters"></div>
+      <div class="field"><label for="wPw2">Confirm password</label><input class="inp" type="password" id="wPw2" autocomplete="new-password"></div>
+      <div id="wErr" class="result bad" role="alert"></div></div>`;break;
+    case "drives":
+      h+=`<div><h1>Which drives should Helm watch?</h1><p class="lead">These are the drives Helm found. It warns you in <i>Needs attention</i> when one passes 80%.</p></div>
+      <div class="card wcard">${d.drives.length?d.drives.map((x,i)=>`<div class="wrow"><input type="checkbox" class="chk" aria-label="Show ${esc(x.shown)}" data-wlist="drives" data-i="${i}" ${x.on?"checked":""}>
+        <input class="inp sm" style="max-width:180px" aria-label="Name for ${esc(x.shown)}" data-wname="drives" data-i="${i}" value="${esc(x.name)}">
+        <span class="num muted ell" style="flex:1;font-size:12.5px">${esc(x.shown)}</span><span class="num muted" style="font-size:12px;white-space:nowrap">${x.total?gbs(x.total)+" · "+x.pct+"%":""}</span></div>`).join(""):'<p class="muted">No drives detected — Helm will show the system drive.</p>'}</div>`;break;
+    case "files":{
+      const ro=d.folders.filter(f=>f.on&&f.writable===false);
+      h+=`<div><h1>Folders for the file manager</h1><p class="lead">Pick the folders you want to browse from Helm. By default Helm can only <b>look</b> — it can't change anything on your server until you allow it.</p></div>
+      <div class="card wcard">${d.folders.map((x,i)=>`<div class="wrow"><input type="checkbox" class="chk" aria-label="Use ${esc(x.shown)}" data-wlist="folders" data-i="${i}" ${x.on?"checked":""}>
+        <input class="inp sm" style="max-width:160px" aria-label="Name for ${esc(x.shown)}" data-wname="folders" data-i="${i}" value="${esc(x.name)}">
+        <span class="num muted ell" style="flex:1;font-size:12.5px">${esc(x.shown)}</span><span class="${x.writable?"found":"notfound"}">${x.writable?"editable":"view only"}</span></div>`).join("")}
+        <div class="wrow"><input class="inp sm num" placeholder="/another/folder" aria-label="Add a folder by path" data-wk="newFolder" value="${esc(d.newFolder)}"><button class="btn sm" data-wact="addFolder">Add</button></div></div>
+      ${ro.length?`<div class="card wcard"><div style="font-weight:600">Want to rename, move or delete files too?</div>
+        <div class="muted" style="font-size:13px;line-height:1.5">That needs one change on the server. Save this as <code class="num">docker-compose.override.yml</code> in your Helm folder, then run <code class="num">docker compose up -d</code>. The folders will show as <i>editable</i> next time.</div>
+        <div id="wSnippet"><button class="btn sm" data-wact="snippet">Show the file</button></div></div>`:""}`;break;}
+    case "services":
+      h+=`<div><h1>Connect your apps</h1><p class="lead">Helm looked for these on your server. Anything it found is already filled in — just test it.</p></div>`+
+      wTile("Update checks","d.wud_on"&&d.wud_on,"wud",sv.wud?`<span class="found">found</span>`:`<span class="notfound">not found</span>`,
+        `<div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("What's Up Docker address","wud_url",{ph:"http://host.docker.internal:3000"})}<button class="btn" data-wtest="wud">Test</button></div>${wResult("wud")}`,
+        "What's Up Docker tells Helm when your apps have updates.")+
+      wTile("AdGuard Home",d.ag_on,"ag",sv.adguard?`<span class="found">found</span>`:`<span class="notfound">not found</span>`,
+        `<div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("Address","adguard_url",{ph:"http://host.docker.internal:80"})}</div>
+         <div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("Username","adguard_user")}${wField("Password","adguard_password",{type:"password",ph:d.ag_set?"saved — leave blank to keep":""})}<button class="btn" data-wtest="adguard">Test</button></div>${wResult("adguard")}`,
+        "Shows DNS queries and how much is blocked.")+
+      wTile("Nginx Proxy Manager",d.npm_on,"npm",sv.npm?`<span class="found">found</span>`:`<span class="notfound">not found</span>`,
+        `<div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("NPM data folder (as Helm sees it)","npm_data_dir",{ph:"/host/root/path/to/npm/data"})}<button class="btn" data-wtest="npm">Test</button></div>${wResult("npm")}`,
+        "Gives every app an Open link and shows when it was last used.")+
+      `<div class="card wcard"><div class="row" style="gap:12px"><div style="flex:1"><div style="font-weight:600">Tailscale</div><div class="muted" style="font-size:12.5px">${sv.tailscale?"Connected automatically — status shows in the Network panel.":"Not detected. If Tailscale runs on this server, it'll show up automatically once it's installed."}</div></div>${sv.tailscale?'<span class="found">found</span>':'<span class="notfound">not found</span>'}</div></div>`+
+      wTile("Backups",d.bk_on,"bk",(W.det.backups||[]).length?`<span class="found">found</span>`:`<span class="notfound">optional</span>`,
+        `<div class="row" style="flex-wrap:wrap">${wField("Status file your backup script writes","backup_status",{ph:"/host/root/home/you/helm-backups/status.json"})}${wField("Command for “Back up now”","backup_command")}</div>`,
+        "Shows when your last backup ran and warns if it's overdue.");break;
+    case "alerts":
+      h+=`<div><h1>Alerts on your phone</h1><p class="lead">Helm always shows problems in <i>Needs attention</i>. It can also push them to your phone with the free <b>ntfy</b> app — no account needed.</p></div>`+
+      wTile("Phone notifications",d.ntfy_on,"ntfy","",
+        `<ol class="muted" style="margin:0;padding-left:18px;font-size:13px;line-height:1.7"><li>Install <b>ntfy</b> from the App Store or Google Play.</li><li>Tap <b>Generate</b> below to make a private topic.</li><li>In the app, tap <b>+</b> and paste the topic name, then press Test.</li></ol>
+         <div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("Topic address","ntfy_url",{ph:"https://ntfy.sh/your-secret-topic"})}<button class="btn" data-wact="genTopic">Generate</button><button class="btn" data-wtest="ntfy">Test</button></div>
+         ${d.ntfy_url?`<div class="muted" style="font-size:12.5px">Topic to paste in the app: <b class="num">${esc(d.ntfy_url.split("/").pop())}</b>${d.ntfy_url.startsWith("https://ntfy.sh/")?"":` · server: ${esc(d.ntfy_url.split("/").slice(0,3).join("/"))}`}</div>`:""}${wResult("ntfy")}`,
+        "Get a push when a drive fills up, an app crashes or an update lands.");break;
+    case "assistant":
+      h+=`<div><h1>Your assistant</h1><p class="lead">Ask questions about your server from the bar on the dashboard. It runs on <b>your</b> hardware — Helm only talks to a model you point it at. Without one, it answers simple questions from live data.</p></div>`+
+      wTile("Show the assistant",d.ai_on,"ai","",
+        `<div class="row" style="flex-wrap:wrap">${wField("Name","assistant_name")}</div>
+         <div class="muted" style="font-size:12.5px">Optional — a local model server that speaks the OpenAI API (Ollama, llama.cpp, LM Studio):</div>
+         <div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("Server address","assistant_url",{ph:"http://host.docker.internal:11434/v1"})}${wField("Model","assistant_model",{ph:"llama3.1:8b"})}<button class="btn" data-wtest="assistant">Test</button></div>${wResult("assistant")}`,
+        "Adds the ask bar under Needs attention. Each browser can still hide it from the header.");
+      if(W.mode==="settings"&&!W.envPw)h+=`<div class="card wcard"><div style="font-weight:600">Change password</div><div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("Current password","curpw",{type:"password"})}${wField("New password","newpw",{type:"password"})}<button class="btn" data-wact="changePw">Change</button></div>${wResult("pw")}</div>`;
+      break;
+    case "done":
+      h+=`<div><h1>You're all set</h1><p class="lead">Helm is watching ${d.drives.filter(x=>x.on).length||1} drive${d.drives.filter(x=>x.on).length===1?"":"s"}${d.folders.filter(x=>x.on).length?`, ${d.folders.filter(x=>x.on).length} folder${d.folders.filter(x=>x.on).length===1?"":"s"}`:""}${[d.wud_on&&"update checks",d.ag_on&&"AdGuard",d.npm_on&&"Proxy Manager",d.ntfy_on&&"phone alerts"].filter(Boolean).map(x=>", "+x).join("")}. You can change any of this later from the <b>gear</b> in the top-right corner.</p></div>
+      <div class="card wcard"><div style="font-weight:600">Tip</div><div class="muted" style="font-size:13px;line-height:1.5">Helm is meant for your home network or Tailscale — don't forward its port to the internet.</div></div>`;break;
+  }
+  $("wz").innerHTML=h;
+  const prev=idx>0?steps[idx-1][0]:null,next=idx<steps.length-1?steps[idx+1][0]:null;
+  let f="";
+  if(setup){
+    f=`<div>${prev&&W.step!=="drives"?`<button class="btn ghost" data-wgo="${prev}">Back</button>`:(W.step==="drives"?`<button class="btn ghost muted" data-wact="skipAll">Skip setup</button>`:"<span></span>")}</div>
+       <div class="row" style="gap:8px">${["services","alerts","assistant"].includes(W.step)?`<button class="btn ghost" data-wact="next" data-skip="1">Skip</button>`:""}
+       <button class="btn primary" data-wact="${W.step==="account"?"create":W.step==="done"?"finish":"next"}" style="min-width:120px">${W.step==="account"?"Continue":W.step==="done"?"Open Helm":"Continue"}</button></div>`;
+  }else f=`<span class="muted" style="font-size:12.5px">Changes save when you press Save.</span><div class="row" style="gap:8px"><button class="btn ghost" data-wclose>Cancel</button><button class="btn primary" data-wact="save" style="min-width:100px">Save</button></div>`;
+  $("wfoot").innerHTML=`<div>${f}</div>`;
+  const first=$("wz").querySelector("input:not([type=checkbox])");if(first&&W.step==="account")first.focus();
+}
+function wPayload(step){
+  const d=W.d,p={};
+  if(step==="drives"||step==="all")p.drives=d.drives.filter(x=>x.on).map(x=>({name:x.name||x.shown,path:x.path}));
+  if(step==="files"||step==="all")p.file_roots=d.folders.filter(x=>x.on).map(x=>({name:x.name||x.shown,path:x.path}));
+  if(step==="services"||step==="all"){
+    p.wud_url=d.wud_on?d.wud_url:null;p.adguard_url=d.ag_on?d.adguard_url:null;p.adguard_user=d.ag_on?d.adguard_user:null;
+    if(d.ag_on&&d.adguard_password)p.adguard_password=d.adguard_password;if(!d.ag_on)p.adguard_password=null;
+    p.npm_data_dir=d.npm_on?d.npm_data_dir:null;p.backup_status=d.bk_on?d.backup_status:null;p.backup_command=d.bk_on?d.backup_command:null;}
+  if(step==="alerts"||step==="all"){p.ntfy_url=d.ntfy_on?d.ntfy_url:null;if(!d.ntfy_on)p.ntfy_token=null;}
+  if(step==="assistant"||step==="all"){p.assistant_enabled=d.ai_on;p.assistant_name=d.assistant_name||"Cubert";p.assistant_url=d.assistant_url||null;p.assistant_model=d.assistant_model||null;}
+  return p;
+}
+async function wSave(step){const r=await fetch("/api/settings",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({settings:wPayload(step)})});
+  if(r.status===401){authFail({auth:true});return false;}const j=await r.json().catch(()=>({}));if(j.settings)W.cfg=j.settings;return r.ok;}
+async function wNext(skip){
+  const steps=wSteps(),idx=steps.findIndex(s=>s[0]===W.step);
+  if(!skip&&!(await wSave(W.step))){toast("⚠ Couldn't save");return;}
+  W.step=steps[idx+1][0];W.results={};renderWizard();$("setup").scrollTo(0,0);
+}
+async function wCreate(){
+  const code=$("wSetupCode").value.trim(),p1=$("wPw1").value,p2=$("wPw2").value,err=$("wErr");
+  if(!code){err.textContent="Enter the setup code from the installer.";return;}
+  if(p1.length<8){err.textContent="Use at least 8 characters.";return;}
+  if(p1!==p2){err.textContent="The passwords don't match.";return;}
+  const r=await fetch("/api/setup/start",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,password:p1})});
+  const j=await r.json().catch(()=>({}));if(!j.ok){err.textContent=j.error||"Something went wrong";return;}
+  S.me=await jget("/api/me");await wLoad();W.step="drives";renderWizard();
+}
+async function wFinish(){
+  await fetch("/api/settings",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({settings:{setup_done:true}})});
+  closeWizard();toast("Welcome to Helm");boot();
+}
+async function wTest(kind){
+  const d=W.d;W.results[kind]={ok:true,message:"Testing…"};renderWizard();
+  const body={wud:{url:d.wud_url},adguard:{url:d.adguard_url,user:d.adguard_user,password:d.adguard_password},npm:{path:d.npm_data_dir},
+    ntfy:{url:d.ntfy_url},assistant:{url:d.assistant_url,model:d.assistant_model}}[kind];
+  try{W.results[kind]=await jpost("/api/settings/test/"+kind,body);}catch(e){W.results[kind]={ok:false,message:"Request failed"};}
+  renderWizard();
+}
+$("setup").addEventListener("input",e=>{const t=e.target;
+  if(t.dataset.wk){W.d[t.dataset.wk]=t.value;}
+  if(t.dataset.wname){W.d[t.dataset.wname][+t.dataset.i].name=t.value;}
+});
+$("setup").addEventListener("change",e=>{const t=e.target;
+  if(t.dataset.wlist){W.d[t.dataset.wlist][+t.dataset.i].on=t.checked;if(t.dataset.wlist==="folders")renderWizard();}
+  if(t.dataset.wtoggle){const map={wud:"wud_on",ag:"ag_on",npm:"npm_on",bk:"bk_on",ntfy:"ntfy_on",ai:"ai_on"};W.d[map[t.dataset.wtoggle]]=t.checked;
+    if(t.checked){if(t.dataset.wtoggle==="wud"&&!W.d.wud_url)W.d.wud_url="http://host.docker.internal:3000";if(t.dataset.wtoggle==="ag"&&!W.d.adguard_url)W.d.adguard_url="http://host.docker.internal:80";}
+    renderWizard();}
+  if(t.dataset.wk==="ntfy_url")renderWizard();
+});
+$("setup").addEventListener("keydown",e=>{if(e.key==="Enter"&&W.step==="account"&&e.target.tagName==="INPUT")wCreate();});
+$("setup").addEventListener("click",async e=>{const b=e.target.closest("[data-wgo],[data-wact],[data-wtest],[data-wclose]");if(!b)return;
+  if(b.hasAttribute("data-wclose")){closeWizard();return;}
+  if(b.dataset.wgo){if(W.mode==="settings"||wSteps().findIndex(s=>s[0]===b.dataset.wgo)<wSteps().findIndex(s=>s[0]===W.step)){W.step=b.dataset.wgo;W.results={};renderWizard();}return;}
+  if(b.dataset.wtest){wTest(b.dataset.wtest);return;}
+  switch(b.dataset.wact){
+    case "create":wCreate();break;
+    case "next":wNext(!!b.dataset.skip);break;
+    case "finish":wFinish();break;
+    case "skipAll":if(confirm("Skip setup? Helm will run with defaults — you can do this later from the gear icon.")){await fetch("/api/settings",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({settings:{setup_done:true}})});closeWizard();boot();}break;
+    case "save":if(await wSave("all")){toast("Settings saved");closeWizard();const me=await jget("/api/me");S.me=me;renderAiChrome();loadStorage();loadFiles();loadNet();loadBackups();loadAlerts();}else toast("⚠ Couldn't save");break;
+    case "genTopic":{const r=await jget("/api/setup/ntfy-topic");W.d.ntfy_url=r.url;W.d.ntfy_on=true;renderWizard();break;}
+    case "addFolder":{const p=(W.d.newFolder||"").trim();if(!p)break;const root=(W.det&&W.det.host_root)||"/host/root";const full=p.startsWith(root)?p:(root.replace(/\/$/,"")+(p.startsWith("/")?p:"/"+p));
+      W.d.folders.push({path:full,name:pretty(p.split("/").filter(Boolean).pop()||p),on:true,shown:p,writable:false});W.d.newFolder="";renderWizard();break;}
+    case "snippet":{const paths=W.d.folders.filter(f=>f.on&&f.writable===false).map(f=>f.path);const r=await jpost("/api/setup/write-snippet",{paths});
+      $("wSnippet").innerHTML=cmdBlock(r.snippet);break;}
+    case "changePw":{const r=await jpost("/api/settings/password",{current:W.d.curpw,new:W.d.newpw});W.results.pw=r.ok?{ok:true,message:"Password changed"}:{ok:false,message:r.error||"Failed"};W.d.curpw=W.d.newpw="";renderWizard();break;}
+  }
+});
+$("settingsBtn").onclick=()=>openWizard("settings","drives");
+
 /* ================================================================= boot == */
 let timers=[];
 async function boot(){
   let me;try{me=await jget("/api/me");}catch(e){renderLive(null,true);setTimeout(boot,5000);return;}
-  if(me.auth_required&&!me.authed){showLogin(true);return;}
-  S.me=me;showLogin(false);$("logoutBtn").hidden=!me.auth_required;
+  if(me.needs_password){S.me=me;showLogin(false);openWizard("setup","account");return;}
+  if(!me.authed){showLogin(true);return;}
+  if(!me.setup_done&&!W.skipped){S.me=me;showLogin(false);openWizard("setup","drives");return;}
+  S.me=me;showLogin(false);$("logoutBtn").hidden=false;$("settingsBtn").hidden=false;
   await loadLayout();initPanelDrag();renderAiChrome();
   await Promise.all([loadSystem(),loadContainers(),loadStorage(),loadBackups(),loadNet(),loadAlerts(),loadFiles()]);
   renderSystem();

@@ -1,19 +1,20 @@
 # Helm — home-server dashboard
 #
-# This file is the generic base. Put YOUR machine's paths in a
-# docker-compose.override.yml next to it (Compose merges it automatically and
-# it's git-ignored) and your secrets in .env. See docker-compose.override.example.yml.
+# Easiest install:  curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/helm-dashboard/main/install.sh | bash
+# Manual install:   docker compose up -d --build   then open http://<server-ip>:8787
 #
-#   cp .env.example .env                                         # set a password etc.
-#   cp docker-compose.override.example.yml docker-compose.override.yml   # your drives/folders
-#   docker compose up -d --build
-#   open http://<server-ip>:8787
+# Everything else (password, drives, folders, apps, alerts, assistant) is set up
+# in the browser on first visit. Optional: a docker-compose.override.yml next to
+# this file for extra mounts (git-ignored) — see docker-compose.override.example.yml.
 
 name: helm
 
 services:
   helm:
-    build: .
+    build:
+      context: .
+      args:
+        PUID: ${PUID:-1000}
     container_name: helm
     restart: unless-stopped
     env_file:
@@ -23,17 +24,15 @@ services:
       DOCKER_HOST: tcp://socket-proxy:2375
       JARVIS_DATA: /data
       HOST_ROOT: /host/root               # host / is mounted read-only below
-      DRIVES: "System:/host/root"         # Name:/host/root/<mount>, comma-separated
-      JARVIS_COOKIE_SECURE: "0"           # set to 1 once you serve Helm over HTTPS
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - helm-data:/data
-      # Read-only view of the host: drive usage, host network counters, hostname,
-      # backup status file. Nothing here is writable.
+      # Read-only view of the host: lets Helm find your drives, folders, Tailscale
+      # and Proxy Manager logs, and read host network counters. Nothing here is writable.
       - /:/host/root:ro
     ports:
-      - "8787:8000"                       # tip: bind to your Tailscale IP, e.g. "100.x.y.z:8787:8000"
+      - "${HELM_PORT:-8787}:8000"
     depends_on: [socket-proxy]
     networks: [internal]
 
@@ -47,6 +46,7 @@ services:
       CONTAINERS: 1
       POST: 1
       INFO: 1
+      DISABLE_IPV6: 1     # listen on IPv4 only (works on hosts with IPv6 turned off)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks: [internal]

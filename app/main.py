@@ -1,6 +1,7 @@
 """Helm — home-server dashboard backend.
 
-Public:    /api/health, /api/me, POST /api/login, POST /api/logout
+Public:    /api/health, /api/me, POST /api/login, POST /api/logout,
+           POST /api/setup/start {code, password}   (only before a password exists)
 Protected (login required when JARVIS_PASSWORD is set):
   containers  GET  /api/containers               GET  /api/containers/{id}/logs
               POST /api/containers/{id}/{act}    GET  /api/containers/{id}/update-plan
@@ -11,6 +12,8 @@ Protected (login required when JARVIS_PASSWORD is set):
   assistant   POST /api/assistant {messages}
   files       GET  /api/files/roots  /api/files/list   POST /api/files/{rename,move,mkdir,delete}
   layout      GET/PUT /api/layout
+  settings    GET/PUT /api/settings  GET /api/setup/detect  POST /api/settings/test/{kind}
+              POST /api/settings/password  GET /api/setup/ntfy-topic  POST /api/setup/write-snippet
 Static UI is served from ./static at /.
 """
 import os
@@ -32,19 +35,18 @@ import assistant
 import files as fm
 import layout as lay
 import auth
+import settings
+import setup as wizard
 
 try:
     import psutil
 except Exception:  # pragma: no cover
     psutil = None
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 app = FastAPI(title="Helm", version=VERSION)
 HERE = os.path.dirname(os.path.abspath(__file__))
 COOKIE_SECURE = os.environ.get("JARVIS_COOKIE_SECURE", "0") == "1"
-ASSISTANT_DEFAULT = os.environ.get("ASSISTANT_ENABLED", "1") == "1"
-BACKUP_STATUS = os.environ.get("BACKUP_STATUS", "").strip()
-BACKUP_COMMAND = os.environ.get("BACKUP_COMMAND", "~/helm-backups/run-backup.sh")
 
 DEMO_DRIVES = [
     {"name": "System", "mount": "/", "used": 412, "total": 936, "pct": 44},
@@ -63,28 +65,22 @@ def containers_data():
     return d
 
 
-def _parse_drives():
-    """DRIVES: 'Name:/path,Other:/path2' (paths as seen inside the container)."""
-    out = []
-    for item in os.environ.get("DRIVES", "").split(","):
-        item = item.strip()
-        if not item:
-            continue
-        name, path = item.split(":", 1) if ":" in item else (item, item)
-        out.append((name.strip(), path.strip()))
-    return out
+def _drives():
+    """Drives chosen in Settings (or DRIVES env). Unconfigured: just the system drive."""
+    ds = [(d.get("name") or d.get("path"), d.get("path")) for d in settings.get("drives") or [] if d.get("path")]
+    if not ds and os.path.isdir(settings.HOST_ROOT):
+        ds = [("System", settings.HOST_ROOT)]
+    return ds
 
 
 def storage_data():
-    drives = _parse_drives()
+    drives = _drives()
     if psutil is not None and drives:
         out = []
-        root = hostinfo.HOST_ROOT.rstrip("/")
         for name, path in drives:
             try:
                 u = psutil.disk_usage(path)
-                shown = path[len(root):] or "/" if path.startswith(root) else path
-                out.append({"name": name, "mount": shown, "used": round(u.used / 1e9),
+                out.append({"name": name, "mount": settings.show_path(path), "used": round(u.used / 1e9),
                             "total": round(u.total / 1e9), "pct": round(u.percent)})
             except Exception:
                 continue
@@ -94,10 +90,11 @@ def storage_data():
 
 
 def backups_data():
-    if not BACKUP_STATUS:
+    path = settings.get("backup_status")
+    if not path:
         return {"ok": False, "configured": False}
     try:
-        with open(BACKUP_STATUS) as f:
+        with open(path) as f:
             return {"ok": True, "configured": True, **json.load(f)}
     except Exception as e:
         return {"ok": False, "configured": True, "error": str(e)}
@@ -112,12 +109,29 @@ alerts.configure(containers=lambda: containers_data()["containers"],
 def _startup():
     db.start_sampler()
     alerts.start_notifier()
+    if not auth.has_password():
+        code = auth.setup_code()
+        bar = "=" * 60
+        print(f"\n{bar}\n  Helm is ready for setup.\n  Open it in your browser and enter this setup code:\n\n"
+              f"      {code}\n\n  (shown until a password is created)\n{bar}\n", flush=True)
 
 
 # --------------------------------------------------------------------- auth --
 def require_auth(request: Request):
-    if auth.auth_required() and not auth.valid_token(request.cookies.get(auth.COOKIE)):
+    if not auth.has_password():
+        raise HTTPException(status_code=401, detail="setup required")
+    if not auth.valid_token(request.cookies.get(auth.COOKIE)):
         raise HTTPException(status_code=401, detail="login required")
+
+
+def _secure(request):
+    return COOKIE_SECURE or request.url.scheme == "https" or \
+        request.headers.get("x-forwarded-proto", "").lower() == "https"
+
+
+def _set_session(request, response):
+    response.set_cookie(auth.COOKIE, auth.make_token(), httponly=True, samesite="lax",
+                        secure=_secure(request), max_age=7 * 24 * 3600, path="/")
 
 
 class LoginBody(BaseModel):
@@ -131,24 +145,25 @@ def health():
 
 @app.get("/api/me")
 def me(request: Request):
-    required = auth.auth_required()
-    authed = (not required) or auth.valid_token(request.cookies.get(auth.COOKIE))
-    cfg = {}
+    has_pw = auth.has_password()
+    authed = has_pw and auth.valid_token(request.cookies.get(auth.COOKIE))
+    out = {"auth_required": True, "authed": authed, "needs_password": not has_pw,
+           "setup_done": bool(settings.get("setup_done")), "env_password": auth.env_password()}
     if authed:
-        cfg = {"version": VERSION, "assistant_default": ASSISTANT_DEFAULT, "assistant": assistant.info(),
-               "access_tracking": access.tracking_enabled(), "backup_command": BACKUP_COMMAND}
-    return {"auth_required": required, "authed": authed, **cfg}
+        out.update({"version": VERSION, "assistant_default": bool(settings.get("assistant_enabled")),
+                    "assistant": assistant.info(), "access_tracking": access.tracking_enabled(),
+                    "backup_command": settings.get("backup_command")})
+    return out
 
 
 @app.post("/api/login")
-def login(body: LoginBody, response: Response):
-    if not auth.auth_required():
-        return {"ok": True, "note": "auth disabled"}
+def login(body: LoginBody, request: Request, response: Response):
+    if not auth.has_password():
+        return JSONResponse({"ok": False, "error": "Finish setup first"}, status_code=409)
     if not auth.check_password(body.password):
         time.sleep(0.5)
         return JSONResponse({"ok": False, "error": "Wrong password"}, status_code=401)
-    response.set_cookie(auth.COOKIE, auth.make_token(), httponly=True,
-                        samesite="lax", secure=COOKIE_SECURE, max_age=7 * 24 * 3600, path="/")
+    _set_session(request, response)
     return {"ok": True}
 
 
@@ -160,6 +175,104 @@ def logout(response: Response):
 
 def _err(e, code=400):
     return JSONResponse({"ok": False, "error": str(e)}, status_code=code)
+
+
+# ------------------------------------------------------------ setup/settings --
+class StartBody(BaseModel):
+    code: str = ""
+    password: str = ""
+
+
+@app.post("/api/setup/start")
+def setup_start(b: StartBody, request: Request, response: Response):
+    """Create the admin password. Only possible while no password exists, and
+    only with the one-time code from the container log."""
+    if auth.has_password():
+        return JSONResponse({"ok": False, "error": "A password already exists — sign in instead"}, status_code=409)
+    if not auth.check_setup_code(b.code):
+        time.sleep(0.5)
+        return JSONResponse({"ok": False, "error": "That setup code doesn't match the one in the log"}, status_code=403)
+    if len(b.password) < 8:
+        return JSONResponse({"ok": False, "error": "Use at least 8 characters"}, status_code=400)
+    settings.update({"password_hash": auth.hash_password(b.password)})
+    _set_session(request, response)
+    return {"ok": True}
+
+
+@app.get("/api/setup/detect", dependencies=[Depends(require_auth)])
+def setup_detect():
+    return wizard.detect()
+
+
+@app.get("/api/settings", dependencies=[Depends(require_auth)])
+def get_settings():
+    return {"settings": settings.public(), "host_root": settings.HOST_ROOT, "env_password": auth.env_password()}
+
+
+_EDITABLE = set(settings.ENV_DEFAULTS) - {"password_hash"}
+
+
+@app.put("/api/settings", dependencies=[Depends(require_auth)])
+async def put_settings(request: Request):
+    body = await request.json()
+    vals = {}
+    for k, v in (body.get("settings") or {}).items():
+        if k not in _EDITABLE:
+            continue
+        if k in settings.SECRET_KEYS and v == "":
+            continue  # blank secret field = keep the stored one
+        vals[k] = v
+    settings.update(vals)
+    return {"ok": True, "settings": settings.public()}
+
+
+class PasswordBody(BaseModel):
+    current: str = ""
+    new: str = ""
+
+
+@app.post("/api/settings/password", dependencies=[Depends(require_auth)])
+def change_password(b: PasswordBody):
+    if auth.env_password():
+        return _err("Your password is set by JARVIS_PASSWORD in .env — change it there", 409)
+    if not auth.check_password(b.current):
+        time.sleep(0.5)
+        return _err("Current password is wrong", 403)
+    if len(b.new) < 8:
+        return _err("Use at least 8 characters")
+    settings.update({"password_hash": auth.hash_password(b.new)})
+    return {"ok": True}
+
+
+@app.post("/api/settings/test/{kind}", dependencies=[Depends(require_auth)])
+async def test_setting(kind: str, request: Request):
+    b = await request.json()
+    import anyio
+    fns = {
+        "wud": lambda: wizard.test_wud(b.get("url", "")),
+        "adguard": lambda: wizard.test_adguard(b.get("url", ""), b.get("user", ""), b.get("password") or None),
+        "npm": lambda: wizard.test_npm(b.get("path", "")),
+        "ntfy": lambda: wizard.test_ntfy(b.get("url", ""), b.get("token") or settings.get("ntfy_token")),
+        "assistant": lambda: wizard.test_assistant(b.get("url", ""), b.get("model", ""),
+                                                   b.get("key") or settings.get("assistant_api_key")),
+    }
+    if kind not in fns:
+        return _err("unknown test")
+    return await anyio.to_thread.run_sync(fns[kind])
+
+
+@app.get("/api/setup/ntfy-topic", dependencies=[Depends(require_auth)])
+def ntfy_topic():
+    return {"url": wizard.new_ntfy_topic()}
+
+
+class SnippetBody(BaseModel):
+    paths: list
+
+
+@app.post("/api/setup/write-snippet", dependencies=[Depends(require_auth)])
+def write_snippet(b: SnippetBody):
+    return {"snippet": wizard.write_snippet([str(p) for p in b.paths])}
 
 
 # --------------------------------------------------------------- containers --

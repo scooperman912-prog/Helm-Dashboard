@@ -15,15 +15,20 @@ import os
 import json
 import urllib.request
 
-URL = os.environ.get("ASSISTANT_URL", "").rstrip("/")
-MODEL = os.environ.get("ASSISTANT_MODEL", "")
-KEY = os.environ.get("ASSISTANT_API_KEY", "")
-NAME = os.environ.get("ASSISTANT_NAME", "Cubert")
+import settings
+
+
+def _cfg():
+    return ((settings.get("assistant_url") or "").rstrip("/"), settings.get("assistant_model") or "",
+            settings.get("assistant_api_key") or "", settings.get("assistant_name") or "Cubert")
+
+
 TIMEOUT = int(os.environ.get("ASSISTANT_TIMEOUT", "120"))
 
 
 def info():
-    return {"name": NAME, "connected": bool(URL and MODEL), "model": MODEL or None}
+    url, model, _, name = _cfg()
+    return {"name": name, "connected": bool(url and model), "model": model or None}
 
 
 def _snapshot(ctx):
@@ -42,6 +47,7 @@ def _snapshot(ctx):
 
 
 def _system_prompt(ctx):
+    NAME = _cfg()[3]
     return (f"You are {NAME}, the assistant built into Helm, a self-hosted dashboard for a home server. "
             "Answer briefly and concretely using the live snapshot below. CPU numbers are percent of the whole "
             "server (all threads = 100%); 'threads' is the same load in threads. If something needs a command, "
@@ -50,7 +56,9 @@ def _system_prompt(ctx):
             + json.dumps(_snapshot(ctx), separators=(",", ":"), default=str))
 
 
-def _call_model(messages, ctx):
+def _call_model(messages, ctx, url=None, model=None, key=None):
+    cu, cm, ck, _ = _cfg()
+    URL, MODEL, KEY = (url or cu).rstrip("/"), model or cm, key if key is not None else ck
     body = {"model": MODEL, "stream": False,
             "messages": [{"role": "system", "content": _system_prompt(ctx)}] + messages[-12:]}
     req = urllib.request.Request(URL + "/chat/completions", data=json.dumps(body).encode(),
@@ -107,6 +115,7 @@ def chat(messages, ctx):
             for m in messages if m.get("role") in ("user", "assistant")]
     if not msgs or msgs[-1]["role"] != "user":
         raise ValueError("last message must be from the user")
+    URL, MODEL = _cfg()[:2]
     if URL and MODEL:
         try:
             return {"reply": _call_model(msgs, ctx), "preview": False}
