@@ -1,6 +1,6 @@
 # Helm — home-server dashboard
 #
-# Easiest install:  curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/helm-dashboard/main/install.sh | bash
+# Easiest install:  curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/Helm-Dashboard/main/install.sh | bash
 # Manual install:   docker compose up -d --build   then open http://<server-ip>:8787
 #
 # Everything else (password, drives, folders, apps, alerts, assistant) is set up

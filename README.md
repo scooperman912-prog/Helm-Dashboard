@@ -29,7 +29,7 @@ Helm runs as one small container (FastAPI + a plain-JS page). It talks to Docker
 On your server (needs Docker with Compose v2):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/helm-dashboard/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/Helm-Dashboard/main/install.sh | bash
 ```
 
 The script downloads Helm to `~/helm`, starts it, and prints the address and a **one-time setup code**.
@@ -52,7 +52,7 @@ You can change any of this later from the **gear** icon.
 <details><summary>Manual install</summary>
 
 ```bash
-git clone https://github.com/scooperman912-prog/helm-dashboard.git ~/helm
+git clone https://github.com/scooperman912-prog/Helm-Dashboard.git ~/helm
 cd ~/helm
 docker compose up -d --build
 docker compose logs helm | grep -A2 "setup code"   # then open http://<server-ip>:8787

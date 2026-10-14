@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Helm installer / updater.
 #
-#   curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/helm-dashboard/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/Helm-Dashboard/main/install.sh | bash
 #
 # Installs into ~/helm (override with HELM_DIR=...), serves on port 8787
 # (override with HELM_PORT=...). Run it again any time to update.
 set -euo pipefail
 
-REPO="https://github.com/scooperman912-prog/helm-dashboard"
+REPO="https://github.com/scooperman912-prog/Helm-Dashboard"
 DIR="${HELM_DIR:-$HOME/helm}"
 PORT="${HELM_PORT:-}"
 
