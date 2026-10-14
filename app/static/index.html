@@ -818,11 +818,12 @@ function wDraft(){
     ag_on:!!(c.adguard_url||sv.adguard),adguard_url:c.adguard_url||(sv.adguard&&sv.adguard.url)||"",adguard_user:c.adguard_user||"",adguard_password:"",ag_set:!!(c.adguard_password&&c.adguard_password.set),
     npm_on:!!(c.npm_data_dir||(sv.npm&&sv.npm.path)),npm_data_dir:c.npm_data_dir||(sv.npm&&sv.npm.path)||"",
     bk_on:!!(c.backup_status||bk.path),backup_status:c.backup_status||bk.path||"",backup_command:c.backup_command||bk.command||"~/helm-backups/run-backup.sh",
-    ntfy_on:!!c.ntfy_url,ntfy_url:c.ntfy_url||"",ntfy_token:"",
+    ntfy_on:!!c.ntfy_url,ntfy_server:c.ntfy_url?c.ntfy_url.replace(/\/[^/]*$/,""):"https://ntfy.sh",ntfy_topic:c.ntfy_url?c.ntfy_url.split("/").pop():"",ntfy_token:"",ntfy_tok_set:!!(c.ntfy_token&&c.ntfy_token.set),
     ai_on:c.assistant_enabled!==false,assistant_name:c.assistant_name||"Cubert",assistant_url:c.assistant_url||"",assistant_model:c.assistant_model||"",assistant_api_key:"",
     curpw:"",newpw:""};
 }
 function wField(label,k,opts={}){const v=W.d[k]??"";return `<div class="field"><label for="wf-${k}">${esc(label)}</label><input class="inp" id="wf-${k}" data-wk="${k}" value="${esc(v)}" ${opts.type?`type="${opts.type}"`:""} placeholder="${esc(opts.ph||"")}" autocomplete="off" spellcheck="false"></div>`;}
+function ntfyUrl(){const d=W.d,t=(d.ntfy_topic||"").trim();return t?(d.ntfy_server||"https://ntfy.sh").trim().replace(/\/+$/,"")+"/"+encodeURIComponent(t):"";}
 function wSelHead(list){const xs=W.d[list],n=xs.filter(x=>x.on).length,all=xs.length&&n===xs.length;
   return xs.length>1?`<div class="between" style="padding-bottom:4px"><span class="muted" style="font-size:12.5px">${n} of ${xs.length} selected · shift-click to select a range</span><button class="btn sm" data-wact="selAll" data-list="${list}">${all?"Select none":"Select all"}</button></div>`:"";}
 function wResult(k){const r=W.results[k];return r?`<span class="result ${r.ok?"ok":"bad"}" role="status">${r.ok?"✓ ":"✕ "}${esc(r.message)}</span>`:"";}
@@ -876,9 +877,14 @@ function renderWizard(){
     case "alerts":
       h+=`<div><h1>Alerts on your phone</h1><p class="lead">Helm always shows problems in <i>Needs attention</i>. It can also push them to your phone with the free <b>ntfy</b> app — no account needed.</p></div>`+
       wTile("Phone notifications",d.ntfy_on,"ntfy","",
-        `<ol class="muted" style="margin:0;padding-left:18px;font-size:13px;line-height:1.7"><li>Install <b>ntfy</b> from the App Store or Google Play.</li><li>Tap <b>Generate</b> below to make a private topic.</li><li>In the app, tap <b>+</b> and paste the topic name, then press Test.</li></ol>
-         <div class="row" style="align-items:flex-end;flex-wrap:wrap">${wField("Topic address","ntfy_url",{ph:"https://ntfy.sh/your-secret-topic"})}<button class="btn" data-wact="genTopic">Generate</button><button class="btn" data-wtest="ntfy">Test</button></div>
-         ${d.ntfy_url?`<div class="muted" style="font-size:12.5px">Topic to paste in the app: <b class="num">${esc(d.ntfy_url.split("/").pop())}</b>${d.ntfy_url.startsWith("https://ntfy.sh/")?"":` · server: ${esc(d.ntfy_url.split("/").slice(0,3).join("/"))}`}</div>`:""}${wResult("ntfy")}`,
+        `<ol class="muted" style="margin:0;padding-left:18px;font-size:13px;line-height:1.8"><li>Install <b>ntfy</b> from the App Store or Google Play.</li><li>In the app, tap <b>+</b>, paste the topic below and tap <b>Subscribe</b>.</li><li>Come back here and press <b>Send test</b>.</li></ol>
+         <div class="field"><label for="wf-ntfy_topic">Your private topic</label>
+           <div class="row" style="flex-wrap:wrap;gap:8px"><input class="inp num" id="wf-ntfy_topic" data-wk="ntfy_topic" value="${esc(d.ntfy_topic)}" placeholder="Press New topic" autocomplete="off" spellcheck="false" style="flex:1;min-width:220px;font-size:16px;letter-spacing:.02em">
+           <button class="btn" data-wact="copyTopic" ${d.ntfy_topic?"":"disabled"}>Copy</button><button class="btn" data-wact="genTopic">New topic</button><button class="btn primary" data-wtest="ntfy" ${d.ntfy_topic?"":"disabled"}>Send test</button></div>
+           <span class="muted" style="font-size:12px">Anyone who knows the topic can read its alerts, so keep it long and random.</span></div>
+         ${wResult("ntfy")}
+         <details ${d.ntfy_server&&d.ntfy_server.replace(/\/+$/,"")!=="https://ntfy.sh"?"open":""}><summary class="muted" style="cursor:pointer;font-size:12.5px">Using your own ntfy server?</summary>
+           <div class="row" style="flex-wrap:wrap;margin-top:10px">${wField("Server","ntfy_server",{ph:"https://ntfy.sh"})}${wField("Access token (optional)","ntfy_token",{type:"password",ph:d.ntfy_tok_set?"saved — leave blank to keep":""})}</div></details>`,
         "Get a push when a drive fills up, an app crashes or an update lands.");break;
     case "assistant":
       h+=`<div><h1>Your assistant</h1><p class="lead">Ask questions about your server from the bar on the dashboard. It runs on <b>your</b> hardware — Helm only talks to a model you point it at. Without one, it answers simple questions from live data.</p></div>`+
@@ -912,7 +918,7 @@ function wPayload(step){
     p.wud_url=d.wud_on?d.wud_url:null;p.adguard_url=d.ag_on?d.adguard_url:null;p.adguard_user=d.ag_on?d.adguard_user:null;
     if(d.ag_on&&d.adguard_password)p.adguard_password=d.adguard_password;if(!d.ag_on)p.adguard_password=null;
     p.npm_data_dir=d.npm_on?d.npm_data_dir:null;p.backup_status=d.bk_on?d.backup_status:null;p.backup_command=d.bk_on?d.backup_command:null;}
-  if(step==="alerts"||step==="all"){p.ntfy_url=d.ntfy_on?d.ntfy_url:null;if(!d.ntfy_on)p.ntfy_token=null;}
+  if(step==="alerts"||step==="all"){p.ntfy_url=d.ntfy_on&&ntfyUrl()?ntfyUrl():null;if(!d.ntfy_on)p.ntfy_token=null;else if(d.ntfy_token)p.ntfy_token=d.ntfy_token;}
   if(step==="assistant"||step==="all"){p.assistant_enabled=d.ai_on;p.assistant_name=d.assistant_name||"Cubert";p.assistant_url=d.assistant_url||null;p.assistant_model=d.assistant_model||null;}
   return p;
 }
@@ -939,7 +945,7 @@ async function wFinish(){
 async function wTest(kind){
   const d=W.d;W.results[kind]={ok:true,message:"Testing…"};renderWizard();
   const body={wud:{url:d.wud_url},adguard:{url:d.adguard_url,user:d.adguard_user,password:d.adguard_password},npm:{path:d.npm_data_dir},
-    ntfy:{url:d.ntfy_url},assistant:{url:d.assistant_url,model:d.assistant_model}}[kind];
+    ntfy:{url:ntfyUrl(),token:d.ntfy_token},assistant:{url:d.assistant_url,model:d.assistant_model}}[kind];
   try{W.results[kind]=await jpost("/api/settings/test/"+kind,body);}catch(e){W.results[kind]={ok:false,message:"Request failed"};}
   renderWizard();
 }
@@ -949,9 +955,10 @@ $("setup").addEventListener("input",e=>{const t=e.target;
 });
 $("setup").addEventListener("change",e=>{const t=e.target;
   if(t.dataset.wtoggle){const map={wud:"wud_on",ag:"ag_on",npm:"npm_on",bk:"bk_on",ntfy:"ntfy_on",ai:"ai_on"};W.d[map[t.dataset.wtoggle]]=t.checked;
+    if(t.checked&&t.dataset.wtoggle==="ntfy"&&!W.d.ntfy_topic){jget("/api/setup/ntfy-topic").then(r=>{W.d.ntfy_topic=r.url.split("/").pop();renderWizard();}).catch(()=>{});}
     if(t.checked){if(t.dataset.wtoggle==="wud"&&!W.d.wud_url)W.d.wud_url="http://host.docker.internal:3000";if(t.dataset.wtoggle==="ag"&&!W.d.adguard_url)W.d.adguard_url="http://host.docker.internal:80";}
     renderWizard();}
-  if(t.dataset.wk==="ntfy_url")renderWizard();
+  if(t.dataset.wk==="ntfy_topic")renderWizard();
 });
 $("setup").addEventListener("keydown",e=>{if(e.key==="Enter"&&W.step==="account"&&e.target.tagName==="INPUT")wCreate();});
 $("setup").addEventListener("click",async e=>{
@@ -972,7 +979,8 @@ $("setup").addEventListener("click",async e=>{
     case "skipAll":if(confirm("Skip setup? Helm will run with defaults — you can do this later from the gear icon.")){await fetch("/api/settings",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({settings:{setup_done:true}})});closeWizard();boot();}break;
     case "save":if(await wSave("all")){toast("Settings saved");closeWizard();const me=await jget("/api/me");S.me=me;renderAiChrome();loadStorage();loadFiles();loadNet();loadBackups();loadAlerts();}else toast("⚠ Couldn't save");break;
     case "selAll":{const xs=W.d[b.dataset.list],all=xs.every(x=>x.on);xs.forEach(x=>x.on=!all);W.last=null;const y=$("setup").scrollTop;renderWizard();$("setup").scrollTop=y;break;}
-    case "genTopic":{const r=await jget("/api/setup/ntfy-topic");W.d.ntfy_url=r.url;W.d.ntfy_on=true;renderWizard();break;}
+    case "genTopic":{const r=await jget("/api/setup/ntfy-topic");W.d.ntfy_topic=r.url.split("/").pop();W.d.ntfy_on=true;W.results.ntfy=null;renderWizard();break;}
+    case "copyTopic":copyText(W.d.ntfy_topic||"");break;
     case "addFolder":{const p=(W.d.newFolder||"").trim();if(!p)break;const root=(W.det&&W.det.host_root)||"/host/root";const full=p.startsWith(root)?p:(root.replace(/\/$/,"")+(p.startsWith("/")?p:"/"+p));
       W.d.folders.push({path:full,name:pretty(p.split("/").filter(Boolean).pop()||p),on:true,shown:p,writable:false});W.d.newFolder="";renderWizard();break;}
     case "snippet":{const paths=W.d.folders.filter(f=>f.on&&f.writable===false).map(f=>f.path);const r=await jpost("/api/setup/write-snippet",{paths});
