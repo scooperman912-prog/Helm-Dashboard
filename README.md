@@ -46,7 +46,7 @@ Open the address in your browser and the setup wizard walks you through the rest
 You can change any of this later from the **gear** icon.
 
 - **Update:** run the same command again.
-- **Change the port:** `HELM_PORT=8788 bash install.sh`, or run the curl command with `HELM_PORT=8788` set.
+- **Change the port:** `curl -fsSL https://raw.githubusercontent.com/scooperman912-prog/Helm-Dashboard/main/install.sh | HELM_PORT=8788 bash`
 - **Uninstall:** `cd ~/helm && docker compose down -v && rm -rf ~/helm`
 
 <details><summary>Manual install</summary>
@@ -79,7 +79,7 @@ Environment variables in `.env` still work as defaults; see `.env.example`. Set 
 - Helm never opens the Docker socket itself. `tecnativa/docker-socket-proxy` allows only container list, inspect, stats, logs and start/stop/restart/pause, plus info. It has no exec, image, network or volume access, and publishes no ports.
 - The host's `/` is mounted **read-only**. The only writable paths are folders you explicitly mount read-write in the override file.
 - First-run setup needs the one-time code from the container log, so someone else on your network can't claim the dashboard before you do. Passwords are stored as salted PBKDF2 hashes.
-- File operations are confined to `FILE_ROOTS`, with realpath checks: anything outside a root is refused, and roots themselves can't be deleted.
+- File operations are confined to the folders you pick in setup, with realpath checks: anything outside a root is refused, and roots themselves can't be deleted.
 - The app runs as a non-root user. Every data endpoint needs the login cookie when a password is set.
 - Helm is meant to stay on your LAN or tailnet. Don't expose it to the internet.
 - The assistant sends your server snapshot only to the `ASSISTANT_URL` you configure.
